@@ -317,6 +317,7 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
 <div class="tabs">
   <button class="active" onclick="switchTab('create',this)">📋 Create PO</button>
   <button onclick="switchTab('master',this)">📦 Master Data</button>
+  <button type="button" onclick="switchTab('item-catalog',this)">🧾 Item Catalog Editor</button>
   <button onclick="switchTab('history',this)">📂 PO History</button>
   <button onclick="switchTab('stock',this)">📊 Stock On Hand</button>
   <button type="button" id="tab-btn-transfer" onclick="switchTab('transfer',this)">🔄 Internal Transfer</button>
@@ -404,11 +405,38 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
 </div>
 <div id="tab-master" class="hidden-tab">
   <div class="card">
+    <div class="card-title">ℹ️ Master data — what lives here</div>
+    <p class="hint" style="line-height:1.55;margin-bottom:12px">Master data is the catalogue this app uses everywhere: <strong>Create PO</strong> (supplier list, item search, default unit price), <strong>Stock On Hand</strong> (product identity by code/barcode/name), and <strong>transfers / returns</strong>. Keep IDs and item codes stable so history and stock stay aligned.</p>
+    <div class="grid2" style="align-items:start">
+      <div>
+        <div style="font-weight:600;color:var(--sage-deep);margin-bottom:8px;font-size:13px">Suppliers</div>
+        <ul class="hint" style="line-height:1.6;padding-left:18px;margin:0">
+          <li><strong>Supplier ID</strong> — short unique code (e.g. SUP001). Used in imports and item linking; avoid changing it after you have POs.</li>
+          <li><strong>Name</strong> — display name on POs and filters.</li>
+          <li>CSV/Excel columns: <code class="mono">id</code> / <code class="mono">supplier_id</code>, <code class="mono">name</code> / <code class="mono">supplier_name</code>.</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-weight:600;color:var(--sage-deep);margin-bottom:8px;font-size:13px">Products / items</div>
+        <ul class="hint" style="line-height:1.6;padding-left:18px;margin:0">
+          <li><strong>Item code</strong> — primary key in this tool; must be unique.</li>
+          <li><strong>Barcode</strong> — optional; speeds search and stock import matching.</li>
+          <li><strong>UOM</strong> — pack label (e.g. CRTN, CRTN-24). Receipts use <strong>qty × pack size</strong> as pieces (PCS) when the name includes a number (e.g. CRTN-24 → 24 PCS per line unit).</li>
+          <li><strong>Unit price</strong> — default KWD price on new PO lines (you can still override on the PO).</li>
+          <li><strong>Supplier</strong> — ties the item to one vendor for PO filtering and defaults.</li>
+          <li>Import columns: <code class="mono">barcode</code>, <code class="mono">code</code> / <code class="mono">item_code</code>, <code class="mono">name</code>, <code class="mono">unit</code> / <code class="mono">uom</code>, <code class="mono">price</code>, <code class="mono">supplier</code> / <code class="mono">supplier_id</code>.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="mt12 hint" style="line-height:1.55;padding:12px 14px;background:#f7faf7;border-radius:12px;border:1px solid #d4e4d8"><strong>Save &amp; backups:</strong> Use <strong>Save Master Data</strong> or <strong>Save All Data</strong> in the header to persist to browser storage. Saving master data also triggers a JSON backup download. <strong>Clear</strong> actions are destructive — export or back up first.</div>
+  </div>
+  <div class="card">
     <div class="card-title">🏢 Suppliers (<span id="sup-count">0</span>)</div>
     <div class="grid2">
       <div><label class="lbl">Supplier ID</label><input class="fi" id="new-sup-id" placeholder="e.g. SUP004"></div>
       <div><label class="lbl">Supplier Name</label><input class="fi" id="new-sup-name" placeholder="e.g. Al Safi Foods"></div>
     </div>
+    <div class="mt12 hint">Leave Supplier ID blank to auto-generate a short code. The same ID must be used in item imports (<code class="mono">supplier</code> column) so products attach to the right vendor.</div>
     <div class="mt12 flex-gap">
       <button class="btn btn-primary" onclick="addSupplier()">+ Add Supplier</button>
       <label class="btn btn-light" style="cursor:pointer">📥 Import CSV<input type="file" accept=".csv" style="display:none" onchange="importSupCSV(event)"></label>
@@ -427,14 +455,14 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
       <label class="lbl">Search Supplier (ID or Name)</label>
       <input class="fi" id="sup-search" placeholder="Type supplier ID or name..." oninput="onSupplierSearchInput()">
     </div>
-    <div class="scroll-box" style="max-height:200px"><table><thead><tr><th>ID</th><th>Name</th><th></th></tr></thead><tbody id="sup-table"></tbody></table></div>
+    <div class="scroll-box" style="max-height:200px"><table><thead><tr><th>ID</th><th>Name</th><th title="Products in master list linked to this supplier ID">Linked products</th><th></th></tr></thead><tbody id="sup-table"></tbody></table></div>
   </div>
   <div class="card">
     <div class="card-title">📦 Products / Items (<span id="item-count">0</span>)</div>
     <div class="grid3">
-      <div><label class="lbl">Barcode</label><input class="fi" id="new-barcode"></div>
-      <div><label class="lbl">Item Code *</label><input class="fi" id="new-code"></div>
-      <div><label class="lbl">Product Name *</label><input class="fi" id="new-name"></div>
+      <div><label class="lbl">Barcode</label><input class="fi" id="new-barcode" placeholder="Optional — scan or type"></div>
+      <div><label class="lbl">Item Code *</label><input class="fi" id="new-code" placeholder="Unique code, e.g. SKU-1001"></div>
+      <div><label class="lbl">Product Name *</label><input class="fi" id="new-name" placeholder="Description as on invoice"></div>
     </div>
     <div class="grid5 mt12">
       <div><label class="lbl">Unit of Measure</label><input class="fi" id="new-unit" placeholder="CRTN-18" value="CRTN"></div>
@@ -442,13 +470,81 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
       <div><label class="lbl">Supplier</label><select class="fi" id="new-item-sup"><option value="">-- Select --</option></select></div>
       <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="addItem()">+ Add Item</button></div>
     </div>
+    <div class="mt12 hint">UOM examples: <code class="mono">PCS</code> (1 piece per unit), <code class="mono">BOX-6</code> or <code class="mono">CRTN-24</code> (number after the dash is how many pieces one line qty represents when receiving stock).</div>
     <div class="mt12 flex-gap">
       <label class="btn btn-light" style="cursor:pointer">📥 Import Items CSV<input type="file" accept=".csv" style="display:none" onchange="importItemCSV(event)"></label>
       <label class="btn btn-light" style="cursor:pointer">📥 Import Items Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importItemXLSX(event)"></label>
-      <span class="hint">Columns: barcode, code, name, unit, price, supplier</span>
+      <span class="hint">Columns: barcode, code, name, unit, price, supplier (supplier must match an existing Supplier ID)</span>
       <button class="btn-danger" style="margin-left:auto" onclick="if(confirm('Clear ALL items?')){items=[];saveData();renderAll()}">Clear All</button>
     </div>
+    <div class="mt12">
+      <label class="lbl">Search products (code, barcode, name, supplier)</label>
+      <input class="fi" id="item-search-filter" placeholder="Filter the table below…" oninput="renderAll()">
+    </div>
     <div class="scroll-box"><table><thead><tr><th>Barcode</th><th>Code</th><th>Name</th><th>UOM</th><th>Unit Price</th><th>Supplier</th><th></th></tr></thead><tbody id="item-table"></tbody></table></div>
+  </div>
+</div>
+<div id="tab-item-catalog" class="hidden-tab">
+  <div class="card">
+    <div class="card-title">🧾 Item Catalog Editor</div>
+    <p class="hint" style="line-height:1.55;margin-bottom:14px">Edit one product at a time. Changes are written to the same <strong>items</strong> master list used by Create PO, stock, transfers, and returns. Use <strong>Supplier-specific rows</strong> for different UOM, price, or barcode per vendor. Use <strong>Alternate barcodes</strong> so search and lookups match any label on the box.</p>
+    <div class="grid2">
+      <div>
+        <label class="lbl">Filter list</label>
+        <input class="fi" id="iec-list-search" placeholder="Code, name, barcode…" oninput="refreshItemCatalogDropdown()">
+      </div>
+      <div>
+        <label class="lbl">Select item</label>
+        <select class="fi" id="iec-item-select" onchange="loadItemIntoCatalogForm(this.value)">
+          <option value="">-- Choose item --</option>
+        </select>
+      </div>
+    </div>
+    <div id="iec-form-wrap" class="mt16" style="display:none">
+      <div class="grid2">
+        <div><label class="lbl">Item code</label><div id="iec-code-display" class="fi" style="background:#f5f2eb;font-weight:600"></div></div>
+        <div><label class="lbl">Product name *</label><input class="fi" id="iec-name" placeholder="Name"></div>
+      </div>
+      <div class="grid2 mt12">
+        <div>
+          <label class="lbl">Primary barcode</label>
+          <input class="fi" id="iec-barcode" placeholder="Main barcode shown on lists">
+        </div>
+        <div>
+          <label class="lbl">Alternate barcodes</label>
+          <textarea class="fi" id="iec-alt-barcodes" rows="3" placeholder="One barcode per line (optional)"></textarea>
+        </div>
+      </div>
+      <div class="mt16">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+          <div style="font-weight:600;color:var(--sage-deep);font-size:13px">Supplier-specific UOM, price &amp; barcode</div>
+          <button type="button" class="btn btn-light" onclick="addCatalogOfferRow()">+ Add supplier row</button>
+        </div>
+        <div class="scroll-box" style="max-height:260px">
+          <table>
+            <thead><tr><th>Supplier *</th><th>UOM</th><th>Unit price (KWD)</th><th>Barcode (optional)</th><th></th></tr></thead>
+            <tbody id="iec-offers-body"></tbody>
+          </table>
+        </div>
+        <div class="mt12 hint">Each row is one vendor for this same item code. When you create a PO (or return) for a supplier, the app picks the row that matches that supplier for default unit price, UOM, and line barcode.</div>
+      </div>
+      <div class="mt16">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+          <div style="font-weight:600;color:var(--sage-deep);font-size:13px">Extra fields (custom metadata)</div>
+          <button type="button" class="btn btn-light" onclick="addCatalogExtraRow()">+ Add field</button>
+        </div>
+        <div class="scroll-box" style="max-height:200px">
+          <table>
+            <thead><tr><th>Field name</th><th>Value</th><th></th></tr></thead>
+            <tbody id="iec-extra-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="mt16 flex-gap">
+        <button type="button" class="btn btn-primary" onclick="commitItemCatalogFromForm()">💾 Save to master data</button>
+        <span class="hint">Saves to browser storage (and cloud sync if enabled), same as Master Data tab.</span>
+      </div>
+    </div>
   </div>
 </div>
 <div id="tab-history" class="hidden-tab">
@@ -831,8 +927,67 @@ function normNum(v){const n=Number(v);return Number.isFinite(n)?n:0}
 function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function normalizeSupplier(s){return{id:normStr(s.id||('SUP'+Math.random().toString(36).slice(2,6).toUpperCase())),name:normStr(s.name)}}
-function normalizeItem(i){return{barcode:normStr(i.barcode),code:normStr(i.code),name:normStr(i.name),unit:normStr(i.unit||'PCS'),price:normNum(i.price),supplier:normStr(i.supplier)}}
-function rebuildSearchIndex(){itemSearchIndex=items.map((i,idx)=>{const sn=(suppliers.find(s=>s.id===i.supplier)||{}).name||'';return{idx,text:[i.barcode,i.code,i.name,i.unit,i.price,i.supplier,sn].join(' ').toLowerCase()}})}
+function normalizeItem(i){
+  const r={barcode:normStr(i.barcode),code:normStr(i.code),name:normStr(i.name),unit:normStr(i.unit||'PCS'),price:normNum(i.price),supplier:normStr(i.supplier)};
+  const altRaw=Array.isArray(i.altBarcodes)?i.altBarcodes:[];
+  const altSet=new Set(altRaw.map(normStr).filter(Boolean));
+  altSet.delete(r.barcode);
+  if(altSet.size)r.altBarcodes=[...altSet];
+  const off=[];
+  if(Array.isArray(i.supplierOffers)){
+    i.supplierOffers.forEach(o=>{
+      const sid=normStr(o&&o.supplier);
+      if(!sid)return;
+      off.push({supplier:sid,unit:normStr(o.unit||''),price:normNum(o.price),barcode:normStr(o.barcode||'')});
+    });
+  }
+  if(off.length)r.supplierOffers=off;
+  if(i.extraFields&&typeof i.extraFields==='object'&&!Array.isArray(i.extraFields)){
+    const ef={};
+    Object.keys(i.extraFields).forEach(k=>{const nk=normStr(k);if(nk)ef[nk]=String(i.extraFields[k]==null?'':i.extraFields[k])});
+    if(Object.keys(ef).length)r.extraFields=ef;
+  }
+  return r;
+}
+function getItemSupplierOffers(it){return Array.isArray(it&&it.supplierOffers)?it.supplierOffers:[]}
+function getItemAltBarcodes(it){return Array.isArray(it&&it.altBarcodes)?it.altBarcodes.map(normStr).filter(Boolean):[]}
+function allItemBarcodes(it){
+  const u=new Set();
+  const p=normStr(it&&it.barcode);
+  if(p)u.add(p);
+  getItemAltBarcodes(it).forEach(b=>u.add(b));
+  getItemSupplierOffers(it).forEach(o=>{const b=normStr(o.barcode);if(b)u.add(b)});
+  return[...u];
+}
+function itemMatchesSupplier(it,selectedSupplierId){
+  if(!selectedSupplierId)return true;
+  const offers=getItemSupplierOffers(it);
+  if(offers.length)return offers.some(o=>supplierMatches(o.supplier,selectedSupplierId));
+  return supplierMatches(it.supplier,selectedSupplierId);
+}
+function resolveItemForSupplier(it,selectedSupplierId){
+  const sel=normStr(selectedSupplierId);
+  const offers=getItemSupplierOffers(it);
+  if(sel&&offers.length){
+    const hit=offers.find(o=>supplierMatches(o.supplier,sel));
+    if(hit){
+      const unit=normStr(hit.unit);
+      const bc=normStr(hit.barcode);
+      return{unit:unit||normStr(it.unit||'PCS'),price:normNum(hit.price!==undefined&&hit.price!==null&&String(hit.price).trim()!==''?hit.price:it.price),barcode:bc||normStr(it.barcode),supplier:sel};
+    }
+  }
+  return{unit:normStr(it.unit||'PCS'),price:normNum(it.price),barcode:normStr(it.barcode),supplier:sel||normStr(it.supplier)};
+}
+function itemFlatSearchString(it){
+  const parts=[it.barcode,...getItemAltBarcodes(it),it.code,it.name,it.unit,String(it.price),it.supplier];
+  getItemSupplierOffers(it).forEach(o=>{parts.push(o.supplier,o.unit,String(o.price),o.barcode)});
+  const sn=(suppliers.find(s=>s.id===it.supplier)||{}).name||'';
+  parts.push(sn);
+  getItemSupplierOffers(it).forEach(o=>{const sn2=(suppliers.find(s=>s.id===o.supplier)||{}).name||'';if(sn2)parts.push(sn2)});
+  if(it.extraFields)Object.entries(it.extraFields).forEach(([k,v])=>{parts.push(k,String(v))});
+  return parts.join(' ').toLowerCase();
+}
+function rebuildSearchIndex(){itemSearchIndex=items.map((i,idx)=>({idx,text:itemFlatSearchString(i)}))}
 function supplierMatches(itemSupplierValue,selectedSupplierId){
   if(!selectedSupplierId)return true;
   const selId=String(selectedSupplierId).trim().toLowerCase();
@@ -960,6 +1115,14 @@ function getBarcodeForStockCode(code){
   const it=items.find(i=>String(i.code).toLowerCase()===String(code).toLowerCase());
   return it?normStr(it.barcode):'';
 }
+function stockRowMatchesItemSearch(r,q){
+  const code=normStr(r.code).toLowerCase();
+  const name=normStr(r.name).toLowerCase();
+  if(code.includes(q)||name.includes(q))return true;
+  const it=items.find(i=>String(i.code).toLowerCase()===String(r.code).toLowerCase());
+  if(!it)return getBarcodeForStockCode(r.code).toLowerCase().includes(q);
+  return allItemBarcodes(it).some(b=>b.toLowerCase().includes(q));
+}
 function getFilteredStockRowsForTable(){
   const filterEl=document.getElementById('stock-filter-location');
   const searchEl=document.getElementById('stock-item-search');
@@ -968,12 +1131,7 @@ function getFilteredStockRowsForTable(){
   let rows=Object.values(stockOnHand||{}).filter(r=>normStr(r.location)&&normStr(r.code));
   if(filterLoc)rows=rows.filter(r=>stockLocationMatches(r.location,filterLoc));
   if(q){
-    rows=rows.filter(r=>{
-      const bc=getBarcodeForStockCode(r.code).toLowerCase();
-      const code=normStr(r.code).toLowerCase();
-      const name=normStr(r.name).toLowerCase();
-      return code.includes(q)||name.includes(q)||bc.includes(q);
-    });
+    rows=rows.filter(r=>stockRowMatchesItemSearch(r,q));
   }
   return rows.sort((a,b)=>a.location.localeCompare(b.location)||a.code.localeCompare(b.code));
 }
@@ -1018,10 +1176,7 @@ function onStockSearch(){
   const seen=new Set();
   stockSearchResultsLast=[];
   rows.forEach(r=>{
-    const bc=getBarcodeForStockCode(r.code).toLowerCase();
-    const code=normStr(r.code).toLowerCase();
-    const name=normStr(r.name).toLowerCase();
-    if(!(code.includes(q)||name.includes(q)||bc.includes(q)))return;
+    if(!stockRowMatchesItemSearch(r,q))return;
     const key=code+'||'+normStr(r.location).toLowerCase();
     if(seen.has(key))return;
     seen.add(key);
@@ -1369,6 +1524,126 @@ function switchTab(t,btn){
   document.getElementById('tab-'+t).classList.remove('hidden-tab');
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  if(t==='item-catalog')refreshItemCatalogPanel();
+}
+
+function refreshItemCatalogDropdown(){
+  const sel=document.getElementById('iec-item-select');
+  if(!sel)return;
+  const keep=normStr(sel.value);
+  const qEl=document.getElementById('iec-list-search');
+  const q=qEl?normStr(qEl.value).toLowerCase():'';
+  const opts=items.filter(it=>!q||itemFlatSearchString(it).includes(q));
+  sel.innerHTML='<option value="">-- Choose item --</option>'+opts.map(it=>'<option value="'+escAttr(it.code)+'">'+escHtml(it.code+' — '+it.name)+'</option>').join('');
+  if(keep&&items.some(it=>it.code===keep))sel.value=keep;
+}
+function refreshItemCatalogPanel(){
+  refreshItemCatalogDropdown();
+  const sel=document.getElementById('iec-item-select');
+  const wrap=document.getElementById('iec-form-wrap');
+  if(!sel||!wrap)return;
+  if(sel.value)loadItemIntoCatalogForm(sel.value);
+  else wrap.style.display='none';
+}
+function loadItemIntoCatalogForm(code){
+  const wrap=document.getElementById('iec-form-wrap');
+  const sel=document.getElementById('iec-item-select');
+  if(!wrap||!sel)return;
+  if(!code){wrap.style.display='none';return}
+  const it=items.find(i=>String(i.code).toLowerCase()===String(code).toLowerCase());
+  if(!it){wrap.style.display='none';return}
+  wrap.style.display='block';
+  const cd=document.getElementById('iec-code-display');
+  if(cd)cd.textContent=it.code;
+  const nm=document.getElementById('iec-name');
+  if(nm)nm.value=it.name;
+  const pb=document.getElementById('iec-barcode');
+  if(pb)pb.value=it.barcode;
+  const ta=document.getElementById('iec-alt-barcodes');
+  if(ta)ta.value=getItemAltBarcodes(it).join('\n');
+  const tbody=document.getElementById('iec-offers-body');
+  if(tbody){
+    tbody.innerHTML='';
+    const offs=getItemSupplierOffers(it);
+    if(offs.length)offs.forEach(o=>addCatalogOfferRow(o));
+    else addCatalogOfferRow({supplier:normStr(it.supplier),unit:it.unit,price:String(it.price!==undefined&&it.price!==null?it.price:''),barcode:it.barcode});
+  }
+  const xb=document.getElementById('iec-extra-body');
+  if(xb){
+    xb.innerHTML='';
+    if(it.extraFields&&typeof it.extraFields==='object')Object.entries(it.extraFields).forEach(([k,v])=>addCatalogExtraRow(k,v));
+  }
+}
+function addCatalogOfferRow(pref){
+  const tbody=document.getElementById('iec-offers-body');
+  if(!tbody)return;
+  const p=pref||{};
+  const sid=normStr(p.supplier);
+  const opts=suppliers.length?suppliers.map(s=>'<option value="'+escAttr(s.id)+'"'+(String(s.id)===sid?' selected':'')+'>'+escHtml(s.id+' — '+s.name)+'</option>').join(''):'<option value="">(add suppliers in Master Data)</option>';
+  const row=document.createElement('tr');
+  row.innerHTML='<td><select class="fi iec-off-sup">'+opts+'</select></td>'+
+    '<td><input class="fi iec-off-unit" value="'+escAttr(normStr(p.unit))+'"></td>'+
+    '<td><input class="fi iec-off-price" type="number" step="0.001" value="'+escAttr(normStr(p.price))+'"></td>'+
+    '<td><input class="fi iec-off-bc" value="'+escAttr(normStr(p.barcode))+'"></td>'+
+    '<td><button type="button" class="btn-danger" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tbody.appendChild(row);
+}
+function addCatalogExtraRow(k,v){
+  const tbody=document.getElementById('iec-extra-body');
+  if(!tbody)return;
+  const row=document.createElement('tr');
+  row.innerHTML='<td><input class="fi iec-ex-k" value="'+escAttr(normStr(k))+'"></td>'+
+    '<td><input class="fi iec-ex-v" value="'+escAttr(String(v==null?'':v))+'"></td>'+
+    '<td><button type="button" class="btn-danger" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tbody.appendChild(row);
+}
+function readCatalogExtraFieldsFromForm(){
+  const o={};
+  document.querySelectorAll('#iec-extra-body tr').forEach(tr=>{
+    const k=normStr(tr.querySelector('.iec-ex-k')&&tr.querySelector('.iec-ex-k').value);
+    const v=tr.querySelector('.iec-ex-v')?tr.querySelector('.iec-ex-v').value:'';
+    if(k)o[k]=String(v==null?'':v);
+  });
+  return o;
+}
+function commitItemCatalogFromForm(){
+  const sel=document.getElementById('iec-item-select');
+  if(!sel||!sel.value)return alert('Select an item first.');
+  const code=sel.value;
+  const idx=items.findIndex(i=>String(i.code).toLowerCase()===String(code).toLowerCase());
+  if(idx<0)return alert('Item not found.');
+  const name=normStr(document.getElementById('iec-name')&&document.getElementById('iec-name').value);
+  if(!name)return alert('Name required.');
+  const primaryBc=normStr(document.getElementById('iec-barcode')&&document.getElementById('iec-barcode').value);
+  const altLines=(document.getElementById('iec-alt-barcodes')&&document.getElementById('iec-alt-barcodes').value||'').split(/\r?\n/).map(normStr).filter(Boolean).filter(b=>b!==primaryBc);
+  const offers=[];
+  document.querySelectorAll('#iec-offers-body tr').forEach(tr=>{
+    const sup=normStr(tr.querySelector('.iec-off-sup')&&tr.querySelector('.iec-off-sup').value);
+    if(!sup)return;
+    const unit=normStr(tr.querySelector('.iec-off-unit')&&tr.querySelector('.iec-off-unit').value);
+    const priceRaw=tr.querySelector('.iec-off-price')&&tr.querySelector('.iec-off-price').value;
+    const price=normNum(priceRaw);
+    const bc=normStr(tr.querySelector('.iec-off-bc')&&tr.querySelector('.iec-off-bc').value);
+    offers.push({supplier:sup,unit,price,barcode:bc});
+  });
+  if(!offers.length)return alert('Add at least one supplier row.');
+  const ef=readCatalogExtraFieldsFromForm();
+  const first=offers[0];
+  items[idx]=normalizeItem({
+    code:items[idx].code,
+    name,
+    barcode:primaryBc||normStr(first.barcode),
+    altBarcodes:altLines,
+    supplierOffers:offers,
+    supplier:first.supplier,
+    unit:normStr(first.unit)||normStr(items[idx].unit||'PCS'),
+    price:normNum(first.price),
+    extraFields:Object.keys(ef).length?ef:undefined
+  });
+  renderAll();
+  const sel2=document.getElementById('iec-item-select');
+  if(sel2){sel2.value=code;loadItemIntoCatalogForm(code)}
+  alert('Item saved to master data.');
 }
 
 function renderAll(){
@@ -1406,15 +1681,27 @@ function renderAll(){
     .map((s,i)=>({s,i}))
     .filter(({s})=>!supSearch||String(s.id||'').toLowerCase().includes(supSearch)||String(s.name||'').toLowerCase().includes(supSearch));
   document.getElementById('sup-count').textContent=suppliers.length;
-  document.getElementById('sup-table').innerHTML=filteredSuppliers.map(({s,i})=>'<tr><td>'+s.id+'</td><td>'+s.name+'</td><td><button class="btn-danger" onclick="suppliers.splice('+i+',1);renderAll()">✕</button></td></tr>').join('');
+  const supProductCounts={};
+  items.forEach(it=>{
+    const ids=new Set();
+    const add=id=>{const x=normStr(id);if(x)ids.add(x)};
+    add(it.supplier);
+    getItemSupplierOffers(it).forEach(o=>add(o.supplier));
+    ids.forEach(sid=>{supProductCounts[sid]=(supProductCounts[sid]||0)+1});
+  });
+  document.getElementById('sup-table').innerHTML=filteredSuppliers.map(({s,i})=>'<tr><td>'+s.id+'</td><td>'+s.name+'</td><td style="text-align:center" title="Items with this supplier ID">'+((supProductCounts[s.id]||0))+'</td><td><button class="btn-danger" onclick="suppliers.splice('+i+',1);renderAll()">✕</button></td></tr>').join('');
   document.getElementById('item-count').textContent=items.length;
   const supMap={};suppliers.forEach(s=>{supMap[s.id]=s.name});
   const itemSearch=(document.getElementById('item-search-filter')||{value:''}).value.trim().toLowerCase();
-  const filteredItems=items.map((it,i)=>({it,i})).filter(({it})=>!itemSearch||[it.barcode,it.code,it.name,it.supplier].join(' ').toLowerCase().includes(itemSearch));
+  const filteredItems=items.map((it,i)=>({it,i})).filter(({it})=>!itemSearch||itemFlatSearchString(it).includes(itemSearch));
   const ITEM_LIMIT=200;
   const shownItems=filteredItems.slice(0,ITEM_LIMIT);
   document.getElementById('item-table').innerHTML=shownItems.map(({it,i})=>{
-    return '<tr><td class="mono">'+it.barcode+'</td><td class="fw">'+it.code+'</td><td>'+it.name+'</td><td>'+it.unit+'</td><td>'+Number(it.price).toFixed(3)+'</td><td style="font-size:11px">'+(supMap[it.supplier]||it.supplier)+'</td><td><button class="btn-danger" onclick="items.splice('+i+',1);renderAll()">✕</button></td></tr>';
+    const offs=getItemSupplierOffers(it);
+    const supCell=offs.length?offs.map(o=>supMap[o.supplier]||o.supplier).join(', '):(supMap[it.supplier]||it.supplier);
+    const alts=getItemAltBarcodes(it);
+    const bcCell=it.barcode+(alts.length?' <span style="color:#888;font-size:11px">+'+alts.length+' alt</span>':'');
+    return '<tr><td class="mono">'+bcCell+'</td><td class="fw">'+it.code+'</td><td>'+it.name+'</td><td>'+it.unit+'</td><td>'+Number(it.price).toFixed(3)+'</td><td style="font-size:11px">'+supCell+'</td><td><button class="btn-danger" onclick="items.splice('+i+',1);renderAll()">✕</button></td></tr>';
   }).join('')+(filteredItems.length>ITEM_LIMIT?'<tr><td colspan="7" style="text-align:center;color:#888;padding:12px">Showing '+ITEM_LIMIT+' of '+filteredItems.length+' items. Use search to find specific items.</td></tr>':'');
   document.getElementById('hist-count').textContent=poHistory.length;
   renderPOHistory();
@@ -1427,6 +1714,7 @@ function renderAll(){
   renderPRForm();
   renderPRItems();
   renderPRHistory();
+  refreshItemCatalogDropdown();
 }
 function onSupplierSearchInput(){renderAll()}
 
@@ -1536,12 +1824,12 @@ function getTransferItemCodeResolved(){
   }
   if(bc){
     const bcl=bc.toLowerCase();
-    const exact=items.filter(i=>normStr(i.barcode).toLowerCase()===bcl);
+    const exact=items.filter(i=>allItemBarcodes(i).some(b=>normStr(b).toLowerCase()===bcl));
     if(exact.length===1)return exact[0].code;
-    const inc=items.filter(i=>{
-      const b=normStr(i.barcode).toLowerCase();
-      return b&&b.includes(bcl);
-    });
+    const inc=items.filter(i=>allItemBarcodes(i).some(b=>{
+      const bl=normStr(b).toLowerCase();
+      return bl&&bl.includes(bcl);
+    }));
     if(inc.length===1)return inc[0].code;
   }
   return'';
@@ -1566,20 +1854,23 @@ function getTransferSearchMatches(q){
   const dig=qq.replace(/\D/g,'');
   const scored=[];
   items.forEach(it=>{
-    const bc=normStr(it.barcode).toLowerCase();
     const code=normStr(it.code).toLowerCase();
     const name=normStr(it.name).toLowerCase();
     const sufDig=itemCodeNumericSuffix(it.code);
     const snorm=(sufDig.replace(/^0+/,'')||'0');
     const dnorm=(dig.replace(/^0+/,'')||'0');
     let score=0;
-    if(bc){
-      if(bc===qq)score+=200;
-      else if(bc.startsWith(qq))score+=150;
-      else if(qq.length>=2&&bc.includes(qq))score+=100;
-      else if(dig.length>=2&&bc.includes(dig))score+=85;
-      else if(dig.length===1&&bc.includes(dig))score+=40;
-    }
+    let bcScore=0;
+    allItemBarcodes(it).forEach(bcRaw=>{
+      const bc=normStr(bcRaw).toLowerCase();
+      if(!bc)return;
+      if(bc===qq)bcScore=Math.max(bcScore,200);
+      else if(bc.startsWith(qq))bcScore=Math.max(bcScore,150);
+      else if(qq.length>=2&&bc.includes(qq))bcScore=Math.max(bcScore,100);
+      else if(dig.length>=2&&bc.includes(dig))bcScore=Math.max(bcScore,85);
+      else if(dig.length===1&&bc.includes(dig))bcScore=Math.max(bcScore,40);
+    });
+    score+=bcScore;
     if(code){
       if(code===qq)score+=200;
       else if(code.startsWith(qq))score+=160;
@@ -2028,7 +2319,7 @@ function onSupplierChange(opts){
   const v=document.getElementById('po-supplier').value;
   syncSupplierLookupFromSelection();
   if(!skipClear)poItems=[];
-  if(v){document.getElementById('no-supplier-msg').style.display='none';document.getElementById('search-area').style.display='';const cnt=items.filter(i=>supplierMatches(i.supplier,v)).length;const b=document.getElementById('avail-badge');b.style.display='';b.textContent=cnt+' items available'}
+  if(v){document.getElementById('no-supplier-msg').style.display='none';document.getElementById('search-area').style.display='';const cnt=items.filter(i=>itemMatchesSupplier(i,v)).length;const b=document.getElementById('avail-badge');b.style.display='';b.textContent=cnt+' items available'}
   else{document.getElementById('no-supplier-msg').style.display='';document.getElementById('search-area').style.display='none';document.getElementById('avail-badge').style.display='none'}
   renderPoItems();
 }
@@ -2071,13 +2362,13 @@ function getFilteredByQuery(q,sup){
     const ix=itemSearchIndex[i];
     const it=items[ix.idx];
     if(!it)continue;
-    if(!supplierMatches(it.supplier,sup))continue;
+    if(!itemMatchesSupplier(it,sup))continue;
     if(ix.text.includes(q)){out.push(it);if(out.length>=20)break}
   }
   return out;
 }
 function onSearchInput(){clearTimeout(searchTimer);searchTimer=setTimeout(onSearch,120)}
-function onSearch(){const f=getFiltered();const dd=document.getElementById('search-dropdown');hlIdx=-1;if(!f.length){dd.style.display='none';return}dd.style.display='';dd.innerHTML=f.map((it,i)=>'<div class="drop-item" onmousedown="pickItem(\''+it.code+'\')" onmouseenter="hlIdx='+i+';highlightDD()"><span class="fw">'+it.code+'</span> <span style="margin:0 8px;color:#888">|</span> '+it.name+' <span style="float:right;color:#2d6a31;font-weight:600">'+(Number(it.price)||0).toFixed(3)+' KWD / '+it.unit+'</span><div style="font-size:11px;color:#aaa;margin-top:2px">Barcode: '+it.barcode+'</div></div>').join('')}
+function onSearch(){const f=getFiltered();const dd=document.getElementById('search-dropdown');const sup=document.getElementById('po-supplier').value;hlIdx=-1;if(!f.length){dd.style.display='none';return}dd.style.display='';dd.innerHTML=f.map((it,i)=>{const d=resolveItemForSupplier(it,sup);return'<div class="drop-item" onmousedown="pickItem(\''+it.code+'\')" onmouseenter="hlIdx='+i+';highlightDD()"><span class="fw">'+it.code+'</span> <span style="margin:0 8px;color:#888">|</span> '+it.name+' <span style="float:right;color:#2d6a31;font-weight:600">'+(Number(d.price)||0).toFixed(3)+' KWD / '+d.unit+'</span><div style="font-size:11px;color:#aaa;margin-top:2px">Barcode: '+(d.barcode||'—')+'</div></div>'}).join('')}
 function highlightDD(){document.querySelectorAll('#search-dropdown .drop-item').forEach((el,i)=>{el.classList.toggle('hl',i===hlIdx)})}
 function onSearchKey(e){const f=getFiltered();if(e.key==='ArrowDown'){e.preventDefault();hlIdx=Math.min(hlIdx+1,f.length-1);highlightDD()}if(e.key==='ArrowUp'){e.preventDefault();hlIdx=Math.max(hlIdx-1,0);highlightDD()}if(e.key==='Enter'&&hlIdx>=0&&f[hlIdx])pickItem(f[hlIdx].code);if(e.key==='Escape')document.getElementById('search-dropdown').style.display='none'}
 function onBottomSearchInput(){clearTimeout(bottomSearchTimer);bottomSearchTimer=setTimeout(onBottomSearch,120)}
@@ -2089,7 +2380,7 @@ function onBottomSearch(){
   hlIdxBottom=-1;
   if(!f.length){dd.style.display='none';return}
   dd.style.display='';
-  dd.innerHTML=f.map((it,i)=>'<div class="drop-item" onmousedown="pickItemFromBottom(\''+it.code+'\')" onmouseenter="hlIdxBottom='+i+';highlightBottomDD()"><span class="fw">'+it.code+'</span> <span style="margin:0 8px;color:#888">|</span> '+it.name+' <span style="float:right;color:#2d6a31;font-weight:600">'+(Number(it.price)||0).toFixed(3)+' KWD / '+it.unit+'</span><div style="font-size:11px;color:#aaa;margin-top:2px">Barcode: '+it.barcode+'</div></div>').join('');
+  dd.innerHTML=f.map((it,i)=>{const d=resolveItemForSupplier(it,sup);return'<div class="drop-item" onmousedown="pickItemFromBottom(\''+it.code+'\')" onmouseenter="hlIdxBottom='+i+';highlightBottomDD()"><span class="fw">'+it.code+'</span> <span style="margin:0 8px;color:#888">|</span> '+it.name+' <span style="float:right;color:#2d6a31;font-weight:600">'+(Number(d.price)||0).toFixed(3)+' KWD / '+d.unit+'</span><div style="font-size:11px;color:#aaa;margin-top:2px">Barcode: '+(d.barcode||'—')+'</div></div>'}).join('');
 }
 function highlightBottomDD(){document.querySelectorAll('#search-dropdown-bottom .drop-item').forEach((el,i)=>{el.classList.toggle('hl',i===hlIdxBottom)})}
 function onBottomSearchKey(e){
@@ -2107,9 +2398,11 @@ function onBottomSearchKey(e){
 }
 document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap')){document.getElementById('search-dropdown').style.display='none';document.getElementById('search-dropdown-bottom').style.display='none';const trd=document.getElementById('tr-search-dropdown');if(trd)trd.style.display='none';const std=document.getElementById('stock-search-dropdown');if(std)std.style.display='none';const prd=document.getElementById('pr-search-dropdown');if(prd)prd.style.display='none';const prdb=document.getElementById('pr-search-dropdown-bottom');if(prdb)prdb.style.display='none'}});
 function pickItem(code){
-  const it=items.find(i=>i.code===code);
+  const it=items.find(i=>String(i.code).toLowerCase()===String(code).toLowerCase());
   if(!it)return;
-  poItems.push({...normalizeItem(it),qty:1,discount:0});
+  const sup=document.getElementById('po-supplier').value;
+  const r=resolveItemForSupplier(it,sup);
+  poItems.push({barcode:r.barcode,code:it.code,name:it.name,unit:r.unit,price:r.price,supplier:r.supplier||sup||it.supplier,qty:1,discount:0});
   document.getElementById('item-search').value='';
   document.getElementById('search-dropdown').style.display='none';
   renderPoItems();
@@ -2160,10 +2453,12 @@ function setPOLineCode(i,v){
   poItems[i].code=code;
   const base=items.find(it=>String(it.code).toLowerCase()===code.toLowerCase());
   if(base){
+    const sup=document.getElementById('po-supplier').value;
+    const r=resolveItemForSupplier(base,sup);
     if(!normStr(poItems[i].name))poItems[i].name=normStr(base.name);
-    if(!normStr(poItems[i].barcode)&&normStr(base.barcode))poItems[i].barcode=normStr(base.barcode);
-    if(!normStr(poItems[i].unit))poItems[i].unit=normStr(base.unit)||'PCS';
-    if(!(normNum(poItems[i].price)>0))poItems[i].price=normNum(base.price);
+    if(!normStr(poItems[i].barcode)&&normStr(r.barcode))poItems[i].barcode=normStr(r.barcode);
+    if(!normStr(poItems[i].unit))poItems[i].unit=normStr(r.unit)||'PCS';
+    if(!(normNum(poItems[i].price)>0))poItems[i].price=normNum(r.price);
   }
   renderPoItems();
 }
@@ -2324,15 +2619,16 @@ function importPOItemsXLSX(e){
       const price=normNum(r['unit price']||r.price||r.unit_price);
       if(!code&&!name){skipped++;return}
       const base=items.find(i=>String(i.code).toLowerCase()===code.toLowerCase())||{};
+      const res=base.code?resolveItemForSupplier(base,supId):null;
       const line={
-        barcode:barcode||normStr(base.barcode),
+        barcode:barcode||normStr(res&&res.barcode)||normStr(base.barcode),
         code:code||normStr(base.code),
         name:name||normStr(base.name)||'Imported Item',
         qty:qty,
-        unit:unit||normStr(base.unit)||'PCS',
-        price:price||normNum(base.price),
+        unit:unit||normStr(res&&res.unit)||normStr(base.unit)||'PCS',
+        price:normNum(price)||(res?normNum(res.price):0)||normNum(base.price),
         discount:Math.min(100,Math.max(0,normNum(r.discount||r.discount_pct||r['disc%']||0))),
-        supplier:supId||normStr(base.supplier)
+        supplier:supId||normStr(res&&res.supplier)||normStr(base.supplier)
       };
       poItems.push(line);
       added++;
@@ -3001,7 +3297,7 @@ function onPRSearch(){
   const q=normStr(inp.value).toLowerCase();hlIdxPR=-1;
   if(q.length<2){dd.style.display='none';return}
   const supId=document.getElementById('pr-supplier').value;
-  prSearchResultsLast=items.filter(it=>{const txt=[it.barcode,it.code,it.name,it.unit,it.supplier].join(' ').toLowerCase();return txt.includes(q)&&supplierMatches(it.supplier,supId)}).slice(0,15);
+  prSearchResultsLast=items.filter(it=>itemFlatSearchString(it).includes(q)&&itemMatchesSupplier(it,supId)).slice(0,15);
   if(!prSearchResultsLast.length){dd.style.display='none';return}
   dd.style.display='';
   dd.innerHTML=prSearchResultsLast.map((it,i)=>'<div class="drop-item" onmousedown="event.preventDefault();addPRItem('+i+')" onmouseenter="hlIdxPR='+i+'"><span class="fw">'+escHtml(it.code)+'</span> <span style="margin:0 8px;color:#888">|</span> '+escHtml(it.name)+' <span style="float:right;color:#2d6a31;font-size:11px">'+escHtml(it.barcode||'')+'</span></div>').join('');
@@ -3015,7 +3311,9 @@ function onPRSearchKey(e){
 }
 function addPRItem(idx){
   const it=prSearchResultsLast[idx];if(!it)return;
-  prItems.push({...normalizeItem(it),qty:1,discount:0});
+  const supId=document.getElementById('pr-supplier').value;
+  const r=resolveItemForSupplier(it,supId);
+  prItems.push({barcode:r.barcode,code:it.code,name:it.name,unit:r.unit,price:r.price,supplier:supId||r.supplier||it.supplier,qty:1,discount:0});
   document.getElementById('pr-search').value='';document.getElementById('pr-search-dropdown').style.display='none';
   renderPRItems();
   const b=document.getElementById('pr-search-bottom');if(b)b.focus();
@@ -3028,7 +3326,7 @@ function onPRBottomSearch(){
   const supId=document.getElementById('pr-supplier').value;
   const q=normStr(inp.value).toLowerCase();
   hlIdxPRBottom=-1;
-  prBottomSearchResultsLast=q.length?items.filter(it=>{const txt=[it.barcode,it.code,it.name,it.unit,it.supplier].join(' ').toLowerCase();return txt.includes(q)&&supplierMatches(it.supplier,supId)}).slice(0,15):[];
+  prBottomSearchResultsLast=q.length?items.filter(it=>itemFlatSearchString(it).includes(q)&&itemMatchesSupplier(it,supId)).slice(0,15):[];
   if(!prBottomSearchResultsLast.length){dd.style.display='none';return}
   dd.style.display='';
   dd.innerHTML=prBottomSearchResultsLast.map((it,i)=>'<div class="drop-item" onmousedown="event.preventDefault();addPRItemFromBottom('+i+')" onmouseenter="hlIdxPRBottom='+i+';highlightPRBottomDD()"><span class="fw">'+escHtml(it.code)+'</span> <span style="margin:0 8px;color:#888">|</span> '+escHtml(it.name)+' <span style="float:right;color:#2d6a31;font-size:11px">'+escHtml(it.barcode||'')+'</span></div>').join('');
@@ -3048,7 +3346,9 @@ function onPRBottomSearchKey(e){
 }
 function addPRItemFromBottom(idx){
   const it=prBottomSearchResultsLast[idx];if(!it)return;
-  prItems.push({...normalizeItem(it),qty:1,discount:0});
+  const supId=document.getElementById('pr-supplier').value;
+  const r=resolveItemForSupplier(it,supId);
+  prItems.push({barcode:r.barcode,code:it.code,name:it.name,unit:r.unit,price:r.price,supplier:supId||r.supplier||it.supplier,qty:1,discount:0});
   renderPRItems();
   const inp=document.getElementById('pr-search-bottom');
   const dd=document.getElementById('pr-search-dropdown-bottom');

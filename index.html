@@ -597,6 +597,14 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
       <div><label class="lbl">Return From (Location)</label><select class="fi" id="pr-address"></select></div>
     </div>
     <div class="mt12"><label class="lbl">Vendor Reference</label><input class="fi" id="pr-vendor-ref" placeholder="Optional vendor ref"></div>
+    <div class="mt12 flex-gap">
+      <button class="btn btn-light" onclick="exportPRDraft()">📤 Export PR Draft</button>
+      <button class="btn btn-light" onclick="exportPRLinesCSV()">📤 Export PR Lines CSV</button>
+      <label class="btn btn-light" style="cursor:pointer">📥 Import PR Draft<input id="pr-import-file" type="file" accept=".json" style="display:none" onchange="importPRDraft(event)"></label>
+      <label class="btn btn-light" style="cursor:pointer">📥 Import PR Excel<input id="pr-import-excel-file" type="file" accept=".xlsx,.xls" style="display:none" onchange="importPRItemsXLSX(event)"></label>
+      <button class="btn btn-light" onclick="downloadPRTemplate()">📄 Download PR Import Template</button>
+      <span class="hint">Excel format: BARCODE | PRODUCT CODE | PRODUCT NAME | QTY | UOM | UNIT PRICE | DISC%</span>
+    </div>
   </div>
   <div class="card">
     <div class="card-title">🔍 Search & Add Items to Return</div>
@@ -2949,6 +2957,112 @@ function viewPRDetails(i){const pr=prHistory[i];if(!pr)return;const area=documen
 }
 function redownloadPR(i){const pr=prHistory[i];if(pr)generatePRPDF(pr)}
 function savePRHistoryToCloud(){saveData();if(!cloudSyncReady||!supaClient){alert('Cloud sync not connected.');return}supaClient.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,data:buildSharedStatePayload(),updated_at:new Date().toISOString()},{onConflict:'id'}).then(({error})=>{if(error)alert('Cloud save failed: '+error.message);else{lastSyncTime=Date.now();updateCloudSyncBanner();alert('PR History saved to cloud!')}})}
+
+// ── PR Import / Export / Template ──
+function exportPRDraft(){
+  const data={rmaNumber:document.getElementById('pr-number').value,supplierId:document.getElementById('pr-supplier').value,returnDate:document.getElementById('pr-date').value,purchaseRep:document.getElementById('pr-rep').value,returnFrom:document.getElementById('pr-address').value,vendorReference:normStr(document.getElementById('pr-vendor-ref').value),reason:document.getElementById('pr-reason').value,items:prItems.map(i=>({...i}))};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='PR_Draft_'+(data.rmaNumber||Date.now())+'.json';
+  document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(a.href);
+}
+function exportPRLinesCSV(){
+  if(!prItems.length)return alert('No PR items to export.');
+  const rmaNum=document.getElementById('pr-number').value||'PR';
+  const supId=document.getElementById('pr-supplier').value||'';
+  const supplierName=((suppliers.find(s=>s.id===supId)||{}).name)||'';
+  const rep=document.getElementById('pr-rep').value||'';
+  const returnDate=document.getElementById('pr-date').value||'';
+  const returnFrom=document.getElementById('pr-address').value||'';
+  const vendorRef=normStr(document.getElementById('pr-vendor-ref').value);
+  const reason=document.getElementById('pr-reason').value||'';
+  const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const rows=[
+    ['rma_number','supplier_id','supplier_name','purchase_rep','return_date','return_from','vendor_reference','reason','line_no','barcode','code','name','qty','unit','unit_price','discount_pct','amount']
+  ];
+  prItems.forEach((it,idx)=>{
+    const qty=Number(it.qty)||0,price=Number(it.price)||0,disc=Math.min(100,Math.max(0,Number(it.discount)||0));
+    rows.push([rmaNum,supId,supplierName,rep,returnDate,returnFrom,vendorRef,reason,idx+1,it.barcode||'',it.code||'',it.name||'',qty,it.unit||'',price.toFixed(3),disc.toFixed(1),lineAmount(it).toFixed(3)]);
+  });
+  const csv=rows.map(r=>r.map(esc).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='PR_Lines_'+rmaNum+'.csv';
+  document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(a.href);
+}
+function importPRDraft(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result||'{}');
+      renderAll();
+      if(d.rmaNumber)document.getElementById('pr-number').value=d.rmaNumber;
+      if(d.supplierId)document.getElementById('pr-supplier').value=d.supplierId;
+      if(d.returnDate)document.getElementById('pr-date').value=d.returnDate;
+      if(d.purchaseRep)document.getElementById('pr-rep').value=d.purchaseRep;
+      if(d.returnFrom)document.getElementById('pr-address').value=d.returnFrom;
+      if(d.reason)document.getElementById('pr-reason').value=d.reason;
+      const vRef=d.vendorReference!=null?d.vendorReference:(d.vendor_reference!=null?d.vendor_reference:'');
+      document.getElementById('pr-vendor-ref').value=normStr(vRef);
+      onPRSupplierChange();
+      prItems=Array.isArray(d.items)?d.items.map(i=>({...i,qty:Number(i.qty)||0,price:Number(i.price)||0,discount:Math.min(100,Math.max(0,Number(i.discount)||0))})):[];
+      renderPRItems();
+      alert('PR draft imported successfully.');
+    }catch{alert('Invalid PR draft file.')}
+  };
+  r.readAsText(f);
+  e.target.value='';
+}
+function importPRItemsXLSX(e){
+  const f=e.target.files[0];if(!f)return;
+  const supId=document.getElementById('pr-supplier').value;
+  xlsxToRows(f,rows=>{
+    let added=0,skipped=0;
+    rows.forEach(r=>{
+      const barcode=normStr(r.barcode);
+      const code=normStr(r['product code']||r.code||r.item_code);
+      const name=normStr(r['product name']||r.name||r.item_name);
+      const qty=normNum(r.qty||r.quantity||1)||1;
+      const unit=normStr(r.uom||r.unit||r['unit of measure']||'PCS');
+      const price=normNum(r['unit price']||r.price||r.unit_price);
+      if(!code&&!name){skipped++;return}
+      const base=items.find(i=>String(i.code).toLowerCase()===code.toLowerCase())||{};
+      const line={
+        barcode:barcode||normStr(base.barcode),
+        code:code||normStr(base.code),
+        name:name||normStr(base.name)||'Imported Item',
+        qty:qty,
+        unit:unit||normStr(base.unit)||'PCS',
+        price:price||normNum(base.price),
+        discount:Math.min(100,Math.max(0,normNum(r.discount||r.discount_pct||r['disc%']||0))),
+        supplier:supId||normStr(base.supplier)
+      };
+      prItems.push(line);
+      added++;
+    });
+    renderPRItems();
+    alert('PR Excel import complete.\nLines added: '+added+'\nSkipped: '+skipped);
+  });
+  e.target.value='';
+}
+function downloadPRTemplate(){
+  const wb=XLSX.utils.book_new();
+  const header=[['BARCODE','PRODUCT CODE','PRODUCT NAME','QTY','UOM','UNIT PRICE','DISC%']];
+  const sample=[
+    ['6291234567890','PRD-001','Sample Product 1',5,'PCS','1.250','0'],
+    ['6291234567891','PRD-002','Sample Product 2',10,'CTN','3.500','5'],
+    ['','PRD-003','Sample Product 3',2,'PCS','0.750','0']
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(header.concat(sample));
+  ws['!cols']=[{wch:16},{wch:16},{wch:30},{wch:8},{wch:8},{wch:12},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,ws,'PR_Import_Template');
+  XLSX.writeFile(wb,'PR_Import_Template.xlsx');
+}
 
 function generatePRPDF(pd){
   const{jsPDF}=window.jspdf;const doc=new jsPDF('p','mm','a4');const W=210,M=14,pw=W-2*M;

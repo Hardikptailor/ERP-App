@@ -496,31 +496,6 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
       <table><thead><tr><th><input type="checkbox" id="hist-select-all" onchange="toggleSelectAllVisiblePOs(this.checked)"></th><th>PO#</th><th>Supplier</th><th>Vendor ref.</th><th>Status</th><th>Date</th><th>Items</th><th>Total</th><th>Action</th></tr></thead><tbody id="hist-table"></tbody></table>
       <div class="mt12" style="text-align:right"><button class="btn btn-primary" style="margin-right:8px" onclick="savePOHistoryToCloud()">💾 Save PO History</button><button class="btn-danger" onclick="if(confirm('Clear all history?')){poHistory=[];saveData();renderAll()}">Clear History</button></div>
     </div>
-    <div id="hist-detail-overlay" class="sto-modal-overlay" onclick="if(event.target===this)closePODetailPopup()">
-      <div id="hist-detail-area" class="sto-modal" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-          <div class="card-title" style="margin:0">📄 PO Details: <span id="hist-detail-title"></span></div>
-          <button class="btn btn-light" style="padding:8px 12px" onclick="closePODetailPopup()">✖ Close</button>
-        </div>
-        <div class="grid3 mt12">
-          <div><label class="lbl">Supplier</label><div id="hist-detail-supplier" class="fw"></div></div>
-          <div><label class="lbl">Status</label><div id="hist-detail-status" class="fw"></div></div>
-          <div><label class="lbl">Date</label><div id="hist-detail-date" class="fw"></div></div>
-        </div>
-        <div class="grid2 mt12">
-          <div><label class="lbl">Purchase Representative</label><div id="hist-detail-rep"></div></div>
-          <div><label class="lbl">Shipping Address</label><div id="hist-detail-address"></div></div>
-        </div>
-        <div class="mt12"><label class="lbl">Vendor Reference</label><div id="hist-detail-vref" class="mono"></div></div>
-        <div class="scroll-box mt12" style="max-height:320px">
-          <table>
-            <thead><tr><th>#</th><th>Barcode</th><th>Code</th><th>Product</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Disc %</th><th>Amount</th></tr></thead>
-            <tbody id="hist-detail-items"></tbody>
-          </table>
-        </div>
-        <div class="mt12 fw green" id="hist-detail-total"></div>
-      </div>
-    </div>
   </div>
 </div>
 <div id="tab-stock" class="hidden-tab">
@@ -631,35 +606,7 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
     </div>
   </div>
 </div>
-<div id="sto-detail-overlay" class="sto-modal-overlay" onclick="if(event.target===this)closeSTODetailPopup()">
-  <div class="sto-modal">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <div class="card-title" style="margin:0">📄 STO Details: <span id="sto-detail-title"></span></div>
-      <button class="btn btn-light" style="padding:8px 12px" onclick="closeSTODetailPopup()">✖ Close</button>
-    </div>
-    <div class="grid3 mt12">
-      <div><label class="lbl">Date</label><div id="sto-detail-date" class="fw"></div></div>
-      <div><label class="lbl">Status</label><div id="sto-detail-status" class="fw"></div></div>
-      <div><label class="lbl">Total PCS</label><div id="sto-detail-total" class="fw green"></div></div>
-    </div>
-    <div class="grid2 mt12">
-      <div><label class="lbl">From</label><div id="sto-detail-from"></div></div>
-      <div><label class="lbl">To</label><div id="sto-detail-to"></div></div>
-    </div>
-    <div class="grid3 mt12">
-      <div><label class="lbl">Source Document</label><div id="sto-detail-source"></div></div>
-      <div><label class="lbl">Shipment Date</label><div id="sto-detail-ship"></div></div>
-      <div><label class="lbl">Prepared By</label><div id="sto-detail-prepared"></div></div>
-    </div>
-    <div class="mt12"><label class="lbl">Note</label><div id="sto-detail-note"></div></div>
-    <div class="scroll-box mt12" style="max-height:320px">
-      <table>
-        <thead><tr><th>#</th><th>Barcode</th><th>Item Code</th><th>Product</th><th>UOM</th><th>Qty</th></tr></thead>
-        <tbody id="sto-detail-items"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+
 
 <div id="tab-pr-create" class="hidden-tab">
   <div class="card">
@@ -765,6 +712,64 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
     </div>
   </div>
 </div>
+</div>
+
+<!-- PO Detail Popup (body-level so switchTab cannot hide it) -->
+<div id="hist-detail-overlay" class="sto-modal-overlay" onclick="if(event.target===this)closePODetailPopup()">
+  <div id="hist-detail-area" class="sto-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div class="card-title" style="margin:0">📄 PO Details: <span id="hist-detail-title"></span></div>
+      <button class="btn btn-light" style="padding:8px 12px" onclick="closePODetailPopup()">✖ Close</button>
+    </div>
+    <div class="grid3 mt12">
+      <div><label class="lbl">Supplier</label><div id="hist-detail-supplier" class="fw"></div></div>
+      <div><label class="lbl">Status</label><div id="hist-detail-status" class="fw"></div></div>
+      <div><label class="lbl">Date</label><div id="hist-detail-date" class="fw"></div></div>
+    </div>
+    <div class="grid2 mt12">
+      <div><label class="lbl">Purchase Representative</label><div id="hist-detail-rep"></div></div>
+      <div><label class="lbl">Shipping Address</label><div id="hist-detail-address"></div></div>
+    </div>
+    <div class="mt12"><label class="lbl">Vendor Reference</label><div id="hist-detail-vref" class="mono"></div></div>
+    <div class="scroll-box mt12" style="max-height:320px">
+      <table>
+        <thead><tr><th>#</th><th>Barcode</th><th>Code</th><th>Product</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Disc %</th><th>Amount</th></tr></thead>
+        <tbody id="hist-detail-items"></tbody>
+      </table>
+    </div>
+    <div class="mt12 fw green" id="hist-detail-total"></div>
+  </div>
+</div>
+
+<!-- STO Detail Popup (body-level so switchTab cannot hide it) -->
+<div id="sto-detail-overlay" class="sto-modal-overlay" onclick="if(event.target===this)closeSTODetailPopup()">
+  <div class="sto-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div class="card-title" style="margin:0">📄 STO Details: <span id="sto-detail-title"></span></div>
+      <button class="btn btn-light" style="padding:8px 12px" onclick="closeSTODetailPopup()">✖ Close</button>
+    </div>
+    <div class="grid3 mt12">
+      <div><label class="lbl">Date</label><div id="sto-detail-date" class="fw"></div></div>
+      <div><label class="lbl">Status</label><div id="sto-detail-status" class="fw"></div></div>
+      <div><label class="lbl">Total PCS</label><div id="sto-detail-total" class="fw green"></div></div>
+    </div>
+    <div class="grid2 mt12">
+      <div><label class="lbl">From</label><div id="sto-detail-from"></div></div>
+      <div><label class="lbl">To</label><div id="sto-detail-to"></div></div>
+    </div>
+    <div class="grid3 mt12">
+      <div><label class="lbl">Source Document</label><div id="sto-detail-source"></div></div>
+      <div><label class="lbl">Shipment Date</label><div id="sto-detail-ship"></div></div>
+      <div><label class="lbl">Prepared By</label><div id="sto-detail-prepared"></div></div>
+    </div>
+    <div class="mt12"><label class="lbl">Note</label><div id="sto-detail-note"></div></div>
+    <div class="scroll-box mt12" style="max-height:320px">
+      <table>
+        <thead><tr><th>#</th><th>Barcode</th><th>Item Code</th><th>Product</th><th>UOM</th><th>Qty</th></tr></thead>
+        <tbody id="sto-detail-items"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1877,8 +1882,6 @@ function viewSTODetails(i){
 }
 function closePODetailPopup(){
   const overlay=document.getElementById('hist-detail-overlay');
-  const area=document.getElementById('hist-detail-area');
-  if(area)area.style.display='none';
   if(overlay)overlay.style.display='none';
 }
 function confirmTransferFromHistory(i){
@@ -2550,9 +2553,7 @@ function renderPOHistory(){
       ?'<button class="btn btn-light" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="confirmPOFromHistory('+i+')">✅ Confirm</button><button class="btn btn-light" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="loadPODraftForEdit('+i+')">📂 Open</button><button class="btn-danger" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="deletePODraft('+i+')">🗑 Delete</button>'
       :'';
     const vref=normStr(po.vendorReference);
-    const viewBtn=status==='Confirmed'
-      ?'<button class="btn btn-light" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="viewConfirmedPODetails('+i+')">🔎 View</button>'
-      :'';
+    const viewBtn='<button class="btn btn-light" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="viewConfirmedPODetails('+i+')">🔎 View</button>';
     return'<tr><td><input type="checkbox" '+(histSelectedMap[i]?'checked':'')+' onchange="setPOSelected('+i+',this.checked)"></td><td class="fw">'+escHtml(po.poNumber)+'</td><td>'+escHtml((po.supplierId?po.supplierId+' - ':'')+(po.supplierName||''))+'</td><td class="mono" style="font-size:11px;max-width:140px" title="'+escAttr(vref)+'">'+(vref?escHtml(vref):'—')+'</td><td><span class="badge">'+(status==='Confirmed'?'Confirmed':'Draft')+'</span></td><td>'+escHtml(String(dateShown))+'</td><td>'+(po.items?po.items.length:0)+'</td><td class="fw green">'+escHtml(String(po.totalAmt||''))+' KWD</td><td>'+viewBtn+draftBtns+'<button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="redownload('+i+')">📄 PDF</button></td></tr>';
   }).join('');
 }
@@ -2579,7 +2580,6 @@ function poDateISO(po){
 function viewConfirmedPODetails(i){
   const po=poHistory[i];
   if(!po)return;
-  if((po.status||'')!=='Confirmed')return alert('Only confirmed POs can be viewed here.');
   const area=document.getElementById('hist-detail-area');
   const overlay=document.getElementById('hist-detail-overlay');
   if(!area||!overlay)return;
@@ -2602,7 +2602,6 @@ function viewConfirmedPODetails(i){
   const totalDisc=itemsList.reduce((s,it)=>s+lineDiscount(it),0);
   document.getElementById('hist-detail-total').textContent='Total Amount: '+total.toFixed(3)+' KWD'+(totalDisc>0?' (Discount: '+totalDisc.toFixed(3)+' KWD)':'');
   overlay.style.display='flex';
-  area.style.display='';
 }
 function buildPOExportRows(list){
   const pos=(Array.isArray(list)?list:[]);

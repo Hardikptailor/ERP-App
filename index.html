@@ -687,6 +687,10 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
         <table><thead><tr><th>#</th><th>Barcode</th><th>Code</th><th>Product Name</th><th style="width:80px">Qty</th><th style="width:100px">UOM</th><th>Unit Price</th><th style="width:70px">Disc %</th><th>Amount</th><th></th></tr></thead>
         <tbody id="pr-items-body"></tbody></table>
       </div>
+      <div class="search-wrap mt12">
+        <input class="fi" style="font-size:14px" id="pr-search-bottom" placeholder="Press Enter to add next item quickly..." autocomplete="off" oninput="onPRBottomSearchInput()" onfocus="onPRBottomSearch()" onkeydown="onPRBottomSearchKey(event)">
+        <div class="dropdown" id="pr-search-dropdown-bottom" style="display:none"></div>
+      </div>
       <div class="totals-bar">
         <div style="font-size:13px;color:#555;font-style:italic;max-width:400px"><strong>Amount in words:</strong><br><span id="pr-amount-words"></span></div>
         <div class="totals-right">
@@ -773,7 +777,7 @@ const TERMS_AR=[
 "\u064a\u062c\u0628 \u0639\u0644\u0649 \u0627\u0644\u0645\u0648\u0631\u062f \u0627\u0644\u0639\u0645\u0644 \u0639\u0644\u0649 \u0627\u0631\u062c\u0627\u0639 \u0627\u0644\u0628\u0636\u0627\u0639\u0629 \u0645\u0646 \u0646\u0641\u0633 \u0645\u0643\u0627\u0646 \u0627\u0644\u062a\u0633\u0644\u064a\u0645 \u0628\u0641\u062a\u0631\u0629 \u0627\u0642\u0635\u0627\u0647\u0627 7 \u0623\u064a\u0627\u0645 \u0645\u0646 \u062a\u0627\u0631\u064a\u062e \u0627\u0628\u0644\u0627\u063a \u0627\u0644\u0645\u0648\u0631\u062f \u0633\u0648\u0627\u0621 \u0639\u0646 \u0637\u0631\u064a\u0642 \u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0627\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0623\u0648 \u0639\u0646 \u0637\u0631\u064a\u0642 \u0627\u0644\u0647\u0627\u062a\u0641\u060c \u0639\u062f\u0627 \u0630\u0644\u0643 \u064a\u062d\u0642 \u0644\u0634\u0631\u0643\u0629 \u0641\u064a\u062f\u0627 \u0627\u062a\u0644\u0627\u0641 \u0627\u0644\u0628\u0636\u0627\u0639\u0629 \u0648\u0627\u0633\u062a\u0642\u0637\u0627\u0639 \u0627\u0644\u0642\u064a\u0645\u0629 \u0627\u0644\u0645\u062d\u062a\u0633\u0628\u0629 \u0639\u0644\u0649 \u0633\u0639\u0631 \u0627\u0644\u0634\u0631\u0627\u0621 \u0645\u0646 \u062d\u0633\u0627\u0628 \u0627\u0644\u0645\u0648\u0631\u062f \u062f\u0648\u0646 \u0627\u0644\u0631\u062c\u0648\u0639 \u0644\u0647."
 ];
 
-let suppliers=[],items=[],poHistory=[],poItems=[],hlIdx=-1,hlIdxBottom=-1,reps=[],itemSearchIndex=[],searchTimer=null,lastSaveWarn='',bottomSearchTimer=null,stockOnHand={},locations=[...ADDRESSES],transferHistory=[],transferItems=[],trSearchResultsLast=[],hlIdxTr=-1,transferSearchTimer=null,editingTransferHistoryIndex=null,editingPOHistoryIndex=null,stockSearchTimer=null,hlIdxStock=-1,stockSearchResultsLast=[],histVisibleIndexes=[],histSelectedMap={},trHistVisibleIndexes=[],trHistSelectedMap={},prHistory=[],prItems=[],editingPRHistoryIndex=null,prSearchTimer=null,hlIdxPR=-1,prSearchResultsLast=[];
+let suppliers=[],items=[],poHistory=[],poItems=[],hlIdx=-1,hlIdxBottom=-1,reps=[],itemSearchIndex=[],searchTimer=null,lastSaveWarn='',bottomSearchTimer=null,stockOnHand={},locations=[...ADDRESSES],transferHistory=[],transferItems=[],trSearchResultsLast=[],hlIdxTr=-1,transferSearchTimer=null,editingTransferHistoryIndex=null,editingPOHistoryIndex=null,stockSearchTimer=null,hlIdxStock=-1,stockSearchResultsLast=[],histVisibleIndexes=[],histSelectedMap={},trHistVisibleIndexes=[],trHistSelectedMap={},prHistory=[],prItems=[],editingPRHistoryIndex=null,prSearchTimer=null,hlIdxPR=-1,prSearchResultsLast=[],hlIdxPRBottom=-1,prBottomSearchResultsLast=[];
 const CLOUD_SYNC_ENABLED=true;
 const SUPABASE_URL='https://uatxbbyrtnmnadrroemf.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhdHhiYnlydG5tbmFkcnJvZW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NTgyNjgsImV4cCI6MjA5MTQzNDI2OH0.JxrFZwOzL0W9_y1dInHX5v4o4j5Vz88t5lwRJYAQZrI';
@@ -1842,23 +1846,28 @@ function ensureSTODetailPopup(){
   overlay.onclick=function(event){if(event.target===overlay)closeSTODetailPopup()};
   return overlay;
 }
+function setSTODetailText(id,val){
+  const el=document.getElementById(id);
+  if(el)el.textContent=val;
+}
 function viewSTODetails(i){
   const t=transferHistory[i];
   if(!t)return;
   const overlay=ensureSTODetailPopup();
   if(!overlay)return;
-  document.getElementById('sto-detail-title').textContent=t.stoNumber||'';
-  document.getElementById('sto-detail-date').textContent=t.date?new Date(t.date).toLocaleDateString():'—';
-  document.getElementById('sto-detail-status').textContent=t.status||'Draft';
-  document.getElementById('sto-detail-total').textContent=normNum(t.totalQty).toFixed(2);
-  document.getElementById('sto-detail-from').textContent=t.fromLocation||'—';
-  document.getElementById('sto-detail-to').textContent=t.toLocation||'—';
-  document.getElementById('sto-detail-source').textContent=t.sourceDocument||'—';
-  document.getElementById('sto-detail-ship').textContent=t.shipmentDate||'—';
-  document.getElementById('sto-detail-prepared').textContent=t.preparedBy||'—';
-  document.getElementById('sto-detail-note').textContent=t.note||'—';
+  setSTODetailText('sto-detail-title',t.stoNumber||'');
+  setSTODetailText('sto-detail-date',t.date?new Date(t.date).toLocaleDateString():'—');
+  setSTODetailText('sto-detail-status',t.status||'Draft');
+  setSTODetailText('sto-detail-total',normNum(t.totalQty).toFixed(2));
+  setSTODetailText('sto-detail-from',t.fromLocation||'—');
+  setSTODetailText('sto-detail-to',t.toLocation||'—');
+  setSTODetailText('sto-detail-source',t.sourceDocument||'—');
+  setSTODetailText('sto-detail-ship',t.shipmentDate||'—');
+  setSTODetailText('sto-detail-prepared',t.preparedBy||'—');
+  setSTODetailText('sto-detail-note',t.note||'—');
   const itemRows=(Array.isArray(t.items)?t.items:[]).map((it,idx)=>'<tr><td>'+(idx+1)+'</td><td class="mono">'+escHtml(normStr(it.barcode)||'')+'</td><td class="fw">'+escHtml(normStr(it.code)||'')+'</td><td>'+escHtml(normStr(it.name)||'')+'</td><td>'+escHtml(normStr(it.uom)||'PCS')+'</td><td>'+normNum(it.qty).toFixed(2)+'</td></tr>').join('');
-  document.getElementById('sto-detail-items').innerHTML=itemRows||'<tr><td colspan="6" class="center">No items</td></tr>';
+  const itemsEl=document.getElementById('sto-detail-items');
+  if(itemsEl)itemsEl.innerHTML=itemRows||'<tr><td colspan="6" class="center">No items</td></tr>';
   overlay.style.display='flex';
 }
 function confirmTransferFromHistory(i){
@@ -2075,7 +2084,7 @@ function onBottomSearchKey(e){
   }
   if(e.key==='Escape')document.getElementById('search-dropdown-bottom').style.display='none'
 }
-document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap')){document.getElementById('search-dropdown').style.display='none';document.getElementById('search-dropdown-bottom').style.display='none';const trd=document.getElementById('tr-search-dropdown');if(trd)trd.style.display='none';const std=document.getElementById('stock-search-dropdown');if(std)std.style.display='none'}});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap')){document.getElementById('search-dropdown').style.display='none';document.getElementById('search-dropdown-bottom').style.display='none';const trd=document.getElementById('tr-search-dropdown');if(trd)trd.style.display='none';const std=document.getElementById('stock-search-dropdown');if(std)std.style.display='none';const prd=document.getElementById('pr-search-dropdown');if(prd)prd.style.display='none';const prdb=document.getElementById('pr-search-dropdown-bottom');if(prdb)prdb.style.display='none'}});
 function pickItem(code){
   const it=items.find(i=>i.code===code);
   if(!it)return;
@@ -2990,6 +2999,43 @@ function addPRItem(idx){
   prItems.push({...normalizeItem(it),qty:1,discount:0});
   document.getElementById('pr-search').value='';document.getElementById('pr-search-dropdown').style.display='none';
   renderPRItems();
+  const b=document.getElementById('pr-search-bottom');if(b)b.focus();
+}
+function onPRBottomSearchInput(){clearTimeout(prSearchTimer);prSearchTimer=setTimeout(onPRBottomSearch,120)}
+function onPRBottomSearch(){
+  const inp=document.getElementById('pr-search-bottom');
+  const dd=document.getElementById('pr-search-dropdown-bottom');
+  if(!inp||!dd)return;
+  const supId=document.getElementById('pr-supplier').value;
+  const q=normStr(inp.value).toLowerCase();
+  hlIdxPRBottom=-1;
+  prBottomSearchResultsLast=q.length?items.filter(it=>{const txt=[it.barcode,it.code,it.name,it.unit,it.supplier].join(' ').toLowerCase();return txt.includes(q)&&supplierMatches(it.supplier,supId)}).slice(0,15):[];
+  if(!prBottomSearchResultsLast.length){dd.style.display='none';return}
+  dd.style.display='';
+  dd.innerHTML=prBottomSearchResultsLast.map((it,i)=>'<div class="drop-item" onmousedown="event.preventDefault();addPRItemFromBottom('+i+')" onmouseenter="hlIdxPRBottom='+i+';highlightPRBottomDD()"><span class="fw">'+escHtml(it.code)+'</span> <span style="margin:0 8px;color:#888">|</span> '+escHtml(it.name)+' <span style="float:right;color:#2d6a31;font-size:11px">'+escHtml(it.barcode||'')+'</span></div>').join('');
+}
+function highlightPRBottomDD(){document.querySelectorAll('#pr-search-dropdown-bottom .drop-item').forEach((el,i)=>{el.classList.toggle('hl',i===hlIdxPRBottom)})}
+function onPRBottomSearchKey(e){
+  const dd=document.getElementById('pr-search-dropdown-bottom');
+  const vis=dd&&dd.style.display!=='none'&&prBottomSearchResultsLast.length;
+  if(e.key==='ArrowDown'&&vis){e.preventDefault();hlIdxPRBottom=Math.min(hlIdxPRBottom+1,prBottomSearchResultsLast.length-1);highlightPRBottomDD()}
+  if(e.key==='ArrowUp'&&vis){e.preventDefault();hlIdxPRBottom=Math.max(hlIdxPRBottom-1,0);highlightPRBottomDD()}
+  if(e.key==='Enter'){
+    e.preventDefault();
+    if(vis&&hlIdxPRBottom>=0)addPRItemFromBottom(hlIdxPRBottom);
+    else if(vis&&prBottomSearchResultsLast.length===1)addPRItemFromBottom(0);
+  }
+  if(e.key==='Escape'&&dd)dd.style.display='none';
+}
+function addPRItemFromBottom(idx){
+  const it=prBottomSearchResultsLast[idx];if(!it)return;
+  prItems.push({...normalizeItem(it),qty:1,discount:0});
+  renderPRItems();
+  const inp=document.getElementById('pr-search-bottom');
+  const dd=document.getElementById('pr-search-dropdown-bottom');
+  if(inp)inp.value='';
+  if(dd)dd.style.display='none';
+  if(inp)inp.focus();
 }
 function renderPRItems(){
   const area=document.getElementById('pr-items-area');if(!prItems.length){area.style.display='none';return}

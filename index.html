@@ -250,6 +250,26 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
 .progress-bar{height:8px;background:#e8ebe8;border-radius:999px;overflow:hidden}
 .progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--sage),var(--sage-deep));transition:width .2s}
 .progress-text{font-size:12px;color:var(--sage-deep);margin-top:6px;font-weight:500}
+.sto-modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.32);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  padding:20px;
+}
+.sto-modal{
+  width:min(980px,95vw);
+  max-height:88vh;
+  overflow:auto;
+  border-radius:16px;
+  border:1px solid var(--line);
+  background:var(--paper);
+  box-shadow:0 24px 64px rgba(0,0,0,.25);
+  padding:18px 18px 14px;
+}
 @media(max-width:768px){
   .grid4,.grid5{grid-template-columns:1fr 1fr}
   .grid3{grid-template-columns:1fr}
@@ -595,9 +615,43 @@ tbody tr:hover td{background:rgba(61,90,74,.035)}
 <div id="tab-transfer-history" class="hidden-tab">
   <div class="card">
     <div class="card-title">📂 STO History (<span id="tr-hist-count">0</span>)</div>
+    <div class="mt12 flex-gap">
+      <button class="btn btn-light" onclick="exportSelectedTransfersExcel()">📤 Export Selected STOs (Excel)</button>
+      <button class="btn btn-light" onclick="exportTransfersExcel()">📤 Export All STOs (Excel)</button>
+      <span class="hint">Use checkboxes in table for selecting one or many STOs</span>
+    </div>
     <div id="tr-hist-empty" class="empty">No STO transfers created yet</div>
     <div id="tr-hist-area" style="display:none">
-      <table><thead><tr><th>STO#</th><th>Date</th><th>From</th><th>To</th><th>Status</th><th>Items</th><th>Total PCS</th><th>Action</th></tr></thead><tbody id="tr-hist-table"></tbody></table>
+      <table><thead><tr><th><input type="checkbox" id="tr-hist-select-all" onchange="toggleSelectAllVisibleTransfers(this.checked)"></th><th>STO#</th><th>Date</th><th>From</th><th>To</th><th>Status</th><th>Items</th><th>Total PCS</th><th>Action</th></tr></thead><tbody id="tr-hist-table"></tbody></table>
+    </div>
+  </div>
+</div>
+<div id="sto-detail-overlay" class="sto-modal-overlay" onclick="if(event.target===this)closeSTODetailPopup()">
+  <div class="sto-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div class="card-title" style="margin:0">📄 STO Details: <span id="sto-detail-title"></span></div>
+      <button class="btn btn-light" style="padding:8px 12px" onclick="closeSTODetailPopup()">✖ Close</button>
+    </div>
+    <div class="grid3 mt12">
+      <div><label class="lbl">Date</label><div id="sto-detail-date" class="fw"></div></div>
+      <div><label class="lbl">Status</label><div id="sto-detail-status" class="fw"></div></div>
+      <div><label class="lbl">Total PCS</label><div id="sto-detail-total" class="fw green"></div></div>
+    </div>
+    <div class="grid2 mt12">
+      <div><label class="lbl">From</label><div id="sto-detail-from"></div></div>
+      <div><label class="lbl">To</label><div id="sto-detail-to"></div></div>
+    </div>
+    <div class="grid3 mt12">
+      <div><label class="lbl">Source Document</label><div id="sto-detail-source"></div></div>
+      <div><label class="lbl">Shipment Date</label><div id="sto-detail-ship"></div></div>
+      <div><label class="lbl">Prepared By</label><div id="sto-detail-prepared"></div></div>
+    </div>
+    <div class="mt12"><label class="lbl">Note</label><div id="sto-detail-note"></div></div>
+    <div class="scroll-box mt12" style="max-height:320px">
+      <table>
+        <thead><tr><th>#</th><th>Barcode</th><th>Item Code</th><th>Product</th><th>UOM</th><th>Qty</th></tr></thead>
+        <tbody id="sto-detail-items"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -719,7 +773,7 @@ const TERMS_AR=[
 "\u064a\u062c\u0628 \u0639\u0644\u0649 \u0627\u0644\u0645\u0648\u0631\u062f \u0627\u0644\u0639\u0645\u0644 \u0639\u0644\u0649 \u0627\u0631\u062c\u0627\u0639 \u0627\u0644\u0628\u0636\u0627\u0639\u0629 \u0645\u0646 \u0646\u0641\u0633 \u0645\u0643\u0627\u0646 \u0627\u0644\u062a\u0633\u0644\u064a\u0645 \u0628\u0641\u062a\u0631\u0629 \u0627\u0642\u0635\u0627\u0647\u0627 7 \u0623\u064a\u0627\u0645 \u0645\u0646 \u062a\u0627\u0631\u064a\u062e \u0627\u0628\u0644\u0627\u063a \u0627\u0644\u0645\u0648\u0631\u062f \u0633\u0648\u0627\u0621 \u0639\u0646 \u0637\u0631\u064a\u0642 \u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0627\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0623\u0648 \u0639\u0646 \u0637\u0631\u064a\u0642 \u0627\u0644\u0647\u0627\u062a\u0641\u060c \u0639\u062f\u0627 \u0630\u0644\u0643 \u064a\u062d\u0642 \u0644\u0634\u0631\u0643\u0629 \u0641\u064a\u062f\u0627 \u0627\u062a\u0644\u0627\u0641 \u0627\u0644\u0628\u0636\u0627\u0639\u0629 \u0648\u0627\u0633\u062a\u0642\u0637\u0627\u0639 \u0627\u0644\u0642\u064a\u0645\u0629 \u0627\u0644\u0645\u062d\u062a\u0633\u0628\u0629 \u0639\u0644\u0649 \u0633\u0639\u0631 \u0627\u0644\u0634\u0631\u0627\u0621 \u0645\u0646 \u062d\u0633\u0627\u0628 \u0627\u0644\u0645\u0648\u0631\u062f \u062f\u0648\u0646 \u0627\u0644\u0631\u062c\u0648\u0639 \u0644\u0647."
 ];
 
-let suppliers=[],items=[],poHistory=[],poItems=[],hlIdx=-1,hlIdxBottom=-1,reps=[],itemSearchIndex=[],searchTimer=null,lastSaveWarn='',bottomSearchTimer=null,stockOnHand={},locations=[...ADDRESSES],transferHistory=[],transferItems=[],trSearchResultsLast=[],hlIdxTr=-1,transferSearchTimer=null,editingTransferHistoryIndex=null,editingPOHistoryIndex=null,stockSearchTimer=null,hlIdxStock=-1,stockSearchResultsLast=[],histVisibleIndexes=[],histSelectedMap={},prHistory=[],prItems=[],editingPRHistoryIndex=null,prSearchTimer=null,hlIdxPR=-1,prSearchResultsLast=[];
+let suppliers=[],items=[],poHistory=[],poItems=[],hlIdx=-1,hlIdxBottom=-1,reps=[],itemSearchIndex=[],searchTimer=null,lastSaveWarn='',bottomSearchTimer=null,stockOnHand={},locations=[...ADDRESSES],transferHistory=[],transferItems=[],trSearchResultsLast=[],hlIdxTr=-1,transferSearchTimer=null,editingTransferHistoryIndex=null,editingPOHistoryIndex=null,stockSearchTimer=null,hlIdxStock=-1,stockSearchResultsLast=[],histVisibleIndexes=[],histSelectedMap={},trHistVisibleIndexes=[],trHistSelectedMap={},prHistory=[],prItems=[],editingPRHistoryIndex=null,prSearchTimer=null,hlIdxPR=-1,prSearchResultsLast=[];
 const CLOUD_SYNC_ENABLED=true;
 const SUPABASE_URL='https://uatxbbyrtnmnadrroemf.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhdHhiYnlydG5tbmFkcnJvZW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NTgyNjgsImV4cCI6MjA5MTQzNDI2OH0.JxrFZwOzL0W9_y1dInHX5v4o4j5Vz88t5lwRJYAQZrI';
@@ -1756,13 +1810,40 @@ function renderTransferHistory(){
   if(!transferHistory.length){emptyEl.style.display='';areaEl.style.display='none';return}
   emptyEl.style.display='none';
   areaEl.style.display='';
+  trHistVisibleIndexes=transferHistory.map((_,i)=>i);
+  const selAll=document.getElementById('tr-hist-select-all');
+  const allVisibleSelected=trHistVisibleIndexes.length>0&&trHistVisibleIndexes.every(i=>!!trHistSelectedMap[i]);
+  if(selAll)selAll.checked=allVisibleSelected;
   tableEl.innerHTML=transferHistory.map((t,i)=>{
     const status=t.status||'Draft';
     const confirmBtn=status!=='Confirmed'
       ?'<button class="btn btn-light" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="confirmTransferFromHistory('+i+')">✅ Confirm</button><button class="btn btn-light" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="loadTransferDraftForEdit('+i+')">✏️ Edit</button><button class="btn-danger" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="deleteTransferDraft('+i+')">🗑 Delete</button>'
       :'';
-    return'<tr><td class="fw">'+t.stoNumber+'</td><td>'+(new Date(t.date).toLocaleDateString())+'</td><td>'+t.fromLocation+'</td><td>'+t.toLocation+'</td><td><span class="badge">'+status+'</span></td><td>'+((t.items||[]).length)+'</td><td class="fw green">'+(normNum(t.totalQty).toFixed(2))+'</td><td>'+confirmBtn+'<button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="redownloadSTO('+i+')">📄 PDF</button></td></tr>';
+    const viewBtn='<button class="btn btn-light" style="padding:6px 10px;font-size:12px;margin-right:6px" onclick="viewSTODetails('+i+')">🔎 View</button>';
+    return'<tr><td><input type="checkbox" '+(trHistSelectedMap[i]?'checked':'')+' onchange="setTransferSelected('+i+',this.checked)"></td><td class="fw">'+escHtml(t.stoNumber||'')+'</td><td>'+escHtml(new Date(t.date).toLocaleDateString())+'</td><td>'+escHtml(t.fromLocation||'')+'</td><td>'+escHtml(t.toLocation||'')+'</td><td><span class="badge">'+escHtml(status)+'</span></td><td>'+((t.items||[]).length)+'</td><td class="fw green">'+(normNum(t.totalQty).toFixed(2))+'</td><td>'+viewBtn+confirmBtn+'<button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="redownloadSTO('+i+')">📄 PDF</button></td></tr>';
   }).join('');
+}
+function setTransferSelected(i,checked){trHistSelectedMap[i]=!!checked}
+function toggleSelectAllVisibleTransfers(checked){trHistVisibleIndexes.forEach(i=>trHistSelectedMap[i]=!!checked);renderTransferHistory()}
+function closeSTODetailPopup(){const overlay=document.getElementById('sto-detail-overlay');if(overlay)overlay.style.display='none'}
+function viewSTODetails(i){
+  const t=transferHistory[i];
+  if(!t)return;
+  const overlay=document.getElementById('sto-detail-overlay');
+  if(!overlay)return;
+  document.getElementById('sto-detail-title').textContent=t.stoNumber||'';
+  document.getElementById('sto-detail-date').textContent=t.date?new Date(t.date).toLocaleDateString():'—';
+  document.getElementById('sto-detail-status').textContent=t.status||'Draft';
+  document.getElementById('sto-detail-total').textContent=normNum(t.totalQty).toFixed(2);
+  document.getElementById('sto-detail-from').textContent=t.fromLocation||'—';
+  document.getElementById('sto-detail-to').textContent=t.toLocation||'—';
+  document.getElementById('sto-detail-source').textContent=t.sourceDocument||'—';
+  document.getElementById('sto-detail-ship').textContent=t.shipmentDate||'—';
+  document.getElementById('sto-detail-prepared').textContent=t.preparedBy||'—';
+  document.getElementById('sto-detail-note').textContent=t.note||'—';
+  const itemRows=(Array.isArray(t.items)?t.items:[]).map((it,idx)=>'<tr><td>'+(idx+1)+'</td><td class="mono">'+escHtml(normStr(it.barcode)||'')+'</td><td class="fw">'+escHtml(normStr(it.code)||'')+'</td><td>'+escHtml(normStr(it.name)||'')+'</td><td>'+escHtml(normStr(it.uom)||'PCS')+'</td><td>'+normNum(it.qty).toFixed(2)+'</td></tr>').join('');
+  document.getElementById('sto-detail-items').innerHTML=itemRows||'<tr><td colspan="6" class="center">No items</td></tr>';
+  overlay.style.display='flex';
 }
 function confirmTransferFromHistory(i){
   const t=transferHistory[i];
@@ -1777,33 +1858,57 @@ function confirmTransferFromHistory(i){
   generateSTOPDF(transferHistory[i]);
   renderAll();
 }
-function exportTransfersExcel(){
-  if(!transferHistory.length)return alert('No transfer data to export.');
-  const rows=[];
-  transferHistory.forEach(t=>{
-    (t.items||[]).forEach((it,idx)=>{
-      rows.push({
-        STO_Number:t.stoNumber||'',
-        Date:t.date||'',
-        From_Location:t.fromLocation||'',
-        To_Location:t.toLocation||'',
-        Status:t.status||'Draft',
-        Source_Document:t.sourceDocument||'',
-        Shipment_Date:t.shipmentDate||'',
-        Note:t.note||'',
-        Prepared_By:t.preparedBy||'',
-        Line_No:idx+1,
-        Code:it.code||'',
-        Barcode:it.barcode||'',
-        Name:it.name||'',
-        Qty:normNum(it.qty)
+function buildTransferExportRows(list){
+  const transfers=Array.isArray(list)?list:[];
+  const summaryRows=transfers.map(t=>({
+    sto_number:t.stoNumber||'',
+    date:t.date?String(t.date).slice(0,10):'',
+    from_location:t.fromLocation||'',
+    to_location:t.toLocation||'',
+    status:t.status||'Draft',
+    items_count:Array.isArray(t.items)?t.items.length:0,
+    total_pcs:normNum(t.totalQty).toFixed(2),
+    source_document:t.sourceDocument||'',
+    shipment_date:t.shipmentDate||'',
+    prepared_by:t.preparedBy||'',
+    note:t.note||''
+  }));
+  const lineRows=[];
+  transfers.forEach(t=>{
+    (Array.isArray(t.items)?t.items:[]).forEach((it,idx)=>{
+      lineRows.push({
+        sto_number:t.stoNumber||'',
+        date:t.date?String(t.date).slice(0,10):'',
+        from_location:t.fromLocation||'',
+        to_location:t.toLocation||'',
+        status:t.status||'Draft',
+        line_no:idx+1,
+        item_code:normStr(it.code),
+        barcode:normStr(it.barcode),
+        product_name:normStr(it.name),
+        uom:normStr(it.uom)||'PCS',
+        qty:normNum(it.qty).toFixed(2)
       });
     });
   });
-  const ws=XLSX.utils.json_to_sheet(rows);
+  return {summaryRows,lineRows};
+}
+function exportTransferListExcel(list,fileName){
+  if(!Array.isArray(list)||!list.length)return alert('No STO records to export.');
+  const rows=buildTransferExportRows(list);
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Transfers');
-  XLSX.writeFile(wb,'Internal_Transfers.xlsx');
+  const wsSummary=XLSX.utils.json_to_sheet(rows.summaryRows);
+  const wsLines=XLSX.utils.json_to_sheet(rows.lineRows.length?rows.lineRows:[{note:'No line items'}]);
+  XLSX.utils.book_append_sheet(wb,wsSummary,'STO_Summary');
+  XLSX.utils.book_append_sheet(wb,wsLines,'STO_Line_Details');
+  XLSX.writeFile(wb,fileName||'STO_History.xlsx');
+}
+function exportTransfersExcel(){
+  exportTransferListExcel([...transferHistory],'STO_History_All.xlsx');
+}
+function exportSelectedTransfersExcel(){
+  const selected=Object.keys(trHistSelectedMap).filter(k=>trHistSelectedMap[k]).map(k=>transferHistory[Number(k)]).filter(Boolean);
+  exportTransferListExcel(selected,'STO_History_Selected.xlsx');
 }
 function downloadTransferTemplate(){
   const rows=[{item_code:'ITEM001',uom:'PCS',qty:10}];

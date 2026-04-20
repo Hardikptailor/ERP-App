@@ -2099,13 +2099,23 @@ function buildSharedStatePayload(){
     fieldOptions
   };
 }
-function applySharedStatePayload(payload){
+function applySharedStatePayload(payload, opts){
+  opts=opts||{};
   if(!payload||typeof payload!=='object')return false;
   const nextSup=Array.isArray(payload.suppliers)?payload.suppliers:[];
   const nextItems=Array.isArray(payload.items)?payload.items:[];
   const nextHist=Array.isArray(payload.poHistory)?payload.poHistory:[];
   const nextReps=Array.isArray(payload.reps)?payload.reps:[];
-  const nextStock=(payload.stockOnHand&&typeof payload.stockOnHand==='object')?payload.stockOnHand:{};
+  const hadLocalStock=stockOnHand&&typeof stockOnHand==='object'&&Object.keys(stockOnHand).length>0;
+  let nextStock;
+  if(payload.stockOnHand!==undefined&&payload.stockOnHand!==null&&typeof payload.stockOnHand==='object'){
+    nextStock=payload.stockOnHand;
+  }else{
+    nextStock=stockOnHand;
+  }
+  if(opts.fromCloudSync&&hadLocalStock&&nextStock&&typeof nextStock==='object'&&Object.keys(nextStock).length===0){
+    nextStock={...stockOnHand};
+  }
   const nextLoc=Array.isArray(payload.locations)&&payload.locations.length?payload.locations:[...ADDRESSES];
   const nextTransfers=Array.isArray(payload.transferHistory)?payload.transferHistory:[];
   const nextPR=Array.isArray(payload.prHistory)?payload.prHistory:[];
@@ -2157,7 +2167,7 @@ async function fetchCloudState(){
     if(json===lastCloudStateJSON)return false;
     isApplyingRemoteState=true;
     try{
-      if(applySharedStatePayload(payload)){
+      if(applySharedStatePayload(payload,{fromCloudSync:true})){
         saveData();
         renderAll();
         lastCloudStateJSON=json;
@@ -2200,7 +2210,7 @@ async function manualCloudRefresh(){
         if(json===lastCloudStateJSON)return;
         isApplyingRemoteState=true;
         try{
-          if(applySharedStatePayload(data)){
+          if(applySharedStatePayload(data,{fromCloudSync:true})){
             saveData();
             renderAll();
             lastCloudStateJSON=json;

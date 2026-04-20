@@ -252,7 +252,25 @@ tbody tr:hover td{background:rgba(201,100,66,.04)}
 .mt16{margin-top:16px}
 .mt20{margin-top:20px}
 .scroll-box{max-height:300px;overflow-y:auto;margin-top:12px;border-radius:12px;border:1px solid var(--line)}
-.master-products-table-wrap{margin-top:12px;border-radius:12px;border:1px solid var(--line);overflow:auto;max-height:min(78vh,calc(100vh - 260px));min-height:280px;background:#fff}
+.master-products-table-wrap{margin-top:10px;border-radius:12px;border:1px solid var(--line);overflow:auto;max-height:min(84vh,calc(100vh - 200px));min-height:300px;background:#fff}
+.master-toolbar{border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:0}
+.master-actions-wrap{position:relative;flex-shrink:0}
+.master-actions-menu{
+  position:absolute;right:0;top:calc(100% + 6px);min-width:260px;max-width:min(320px,92vw);
+  background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 32px rgba(0,0,0,.12);
+  z-index:200;padding:6px 0;
+}
+.master-actions-item{
+  display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;border:none;background:transparent;cursor:pointer;
+  font-family:inherit;color:var(--text);line-height:1.35;
+}
+.master-actions-item:hover{background:#F5F0EA}
+.master-actions-item.danger{color:#a42}
+.master-actions-item.danger:hover{background:#FDEBE5}
+.master-actions-label{cursor:pointer;margin:0;font-weight:400}
+.master-actions-label input[type=file]{display:none}
+.master-actions-sep{height:1px;background:var(--line);margin:6px 10px;border:none;padding:0}
+.master-toolbar-hint{margin-top:8px!important;line-height:1.45}
 .master-products-table{width:100%;border-collapse:collapse;font-size:12px}
 .master-products-table th,.master-products-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
 .master-products-table th{background:#F5F0EA;font-weight:600;position:sticky;top:0;z-index:1}
@@ -888,25 +906,27 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
 </div>
 <div id="tab-master" class="hidden-tab">
   <div id="master-list-panel" class="card">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
-      <button type="button" class="btn btn-primary" style="padding:6px 16px;font-size:13px;font-weight:600;border-radius:8px" onclick="openMasterNewProduct()" title="Create new product">New</button>
-      <div class="card-title" style="margin:0;flex:1;min-width:180px">📦 Products / Items (<span id="item-count">0</span>)</div>
-    </div>
-    <div class="mt12 flex-gap">
-      <label class="btn btn-light" style="cursor:pointer">📥 Import Items CSV<input type="file" accept=".csv" style="display:none" onchange="importItemCSV(event)"></label>
-      <label class="btn btn-light" style="cursor:pointer">📥 Import Items Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importItemXLSX(event)"></label>
-      <span class="hint">Columns: barcode, code, name, unit, price, supplier</span>
-      <button class="btn btn-light" onclick="saveMasterData()">💾 Save Master Data</button>
-      <button class="btn btn-light" onclick="refreshMasterData()">🔄 Refresh</button>
-      <button class="btn-danger" style="margin-left:auto" onclick="clearProductData()">🗑 Clear Products</button>
-    </div>
-    <div class="mt12 flex-gap" style="padding:14px 16px;background:linear-gradient(135deg,#FBF2E8 0%,#F5EADD 100%);border-radius:12px;border:1px solid #E8C9A5;align-items:center">
-      <div style="display:flex;flex-direction:column;gap:2px">
-        <strong style="color:var(--sage-deep);font-size:13px">✨ Extended Fields (Department, Category, Brand, Sales Price, etc.)</strong>
-        <span class="hint" style="font-size:12px">Download pre-filled template → fill 12 extended fields in Excel → import back. New dropdown values auto-added.</span>
+    <div class="master-toolbar">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;width:100%">
+        <button type="button" class="btn btn-primary" style="padding:6px 16px;font-size:13px;font-weight:600;border-radius:8px" onclick="openMasterNewProduct()" title="Create new product">New</button>
+        <div class="card-title" style="margin:0;flex:1;min-width:160px">📦 Products / Items (<span id="item-count">0</span>)</div>
+        <div class="master-actions-wrap" onclick="event.stopPropagation()">
+          <button type="button" class="btn btn-light" id="master-actions-toggle" onclick="toggleMasterActionsMenu(event)" aria-expanded="false" aria-haspopup="true" aria-controls="master-actions-menu" style="min-width:108px;font-weight:600">Actions ▾</button>
+          <div id="master-actions-menu" class="master-actions-menu" role="menu" style="display:none">
+            <button type="button" class="master-actions-item" role="menuitem" onclick="closeMasterActionsMenu();saveMasterData();">💾 Save Master Data</button>
+            <button type="button" class="master-actions-item" role="menuitem" onclick="closeMasterActionsMenu();refreshMasterData();">🔄 Refresh</button>
+            <div class="master-actions-sep" role="separator"></div>
+            <label class="master-actions-item master-actions-label" role="menuitem">📥 Import Items CSV<input type="file" accept=".csv" onchange="importItemCSV(event);closeMasterActionsMenu();"></label>
+            <label class="master-actions-item master-actions-label" role="menuitem">📥 Import Items Excel<input type="file" accept=".xlsx,.xls" onchange="importItemXLSX(event);closeMasterActionsMenu();"></label>
+            <div class="master-actions-sep" role="separator"></div>
+            <button type="button" class="master-actions-item" role="menuitem" onclick="closeMasterActionsMenu();downloadProductFieldsTemplate();">📋 Download extended fields template</button>
+            <label class="master-actions-item master-actions-label" role="menuitem">📥 Import Fields Excel<input type="file" accept=".xlsx,.xls" onchange="importProductFieldsXLSX(event);closeMasterActionsMenu();"></label>
+            <div class="master-actions-sep" role="separator"></div>
+            <button type="button" class="master-actions-item danger" role="menuitem" onclick="closeMasterActionsMenu();clearProductData();">🗑 Clear all products</button>
+          </div>
+        </div>
       </div>
-      <button type="button" class="btn btn-light" style="margin-left:auto" onclick="downloadProductFieldsTemplate()">📋 Download Template</button>
-      <label class="btn btn-primary" style="cursor:pointer">📥 Import Fields Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importProductFieldsXLSX(event)"></label>
+      <p class="master-toolbar-hint hint">Items: barcode, code, name, unit, price, supplier. Extended fields (dept, category, brand, etc.): use <strong>Download extended fields template</strong> / <strong>Import Fields Excel</strong> under Actions.</p>
     </div>
     <div id="import-progress" class="progress-wrap">
       <div class="progress-bar"><div id="import-progress-fill" class="progress-fill"></div></div>
@@ -2303,6 +2323,7 @@ function switchTab(t,btn){
   if(t!=='master'){
     const ml=document.getElementById('master-list-panel'),mn=document.getElementById('master-new-panel');
     if(ml&&mn&&mn.style.display==='block'){mn.style.display='none';ml.style.display='block';}
+    closeMasterActionsMenu();
   }
   document.querySelectorAll('.content > div').forEach(d=>d.classList.add('hidden-tab'));
   var target=document.getElementById('tab-'+t);
@@ -3501,6 +3522,21 @@ function removeRep(i){if(!confirm('Remove this representative?'))return;reps.spl
 
 function addSupplier(){const name=document.getElementById('new-sup-name').value.trim();if(!name)return alert('Name required');const id=document.getElementById('new-sup-id').value.trim()||'SUP'+Math.random().toString(36).slice(2,6).toUpperCase();suppliers.push(normalizeSupplier({id,name}));document.getElementById('new-sup-id').value='';document.getElementById('new-sup-name').value='';renderAll()}
 function onMasterItemFilterInput(){masterItemPage=0;renderAll()}
+function closeMasterActionsMenu(){
+  const m=document.getElementById('master-actions-menu');
+  const b=document.getElementById('master-actions-toggle');
+  if(m)m.style.display='none';
+  if(b)b.setAttribute('aria-expanded','false');
+}
+function toggleMasterActionsMenu(e){
+  if(e)e.stopPropagation();
+  const m=document.getElementById('master-actions-menu');
+  const b=document.getElementById('master-actions-toggle');
+  if(!m)return;
+  const isOpen=m.style.display==='block';
+  m.style.display=isOpen?'none':'block';
+  if(b)b.setAttribute('aria-expanded',isOpen?'false':'true');
+}
 function resetNewProductForm(){
   ['pn-barcode','pn-code','pn-name','pn-price','pn-salesPrice'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
   const u=document.getElementById('pn-unit');if(u)u.value='CRTN';
@@ -3719,7 +3755,12 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
     const modal=document.getElementById('product-edit-modal');
     if(modal&&modal.style.display==='flex')closeProductEditModal();
+    else closeMasterActionsMenu();
   }
+});
+document.addEventListener('click',function(e){
+  if(e.target.closest&&e.target.closest('.master-actions-wrap'))return;
+  closeMasterActionsMenu();
 });
 
 // =============== DOWNLOAD TEMPLATE ===============

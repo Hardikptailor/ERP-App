@@ -252,6 +252,11 @@ tbody tr:hover td{background:rgba(201,100,66,.04)}
 .mt16{margin-top:16px}
 .mt20{margin-top:20px}
 .scroll-box{max-height:300px;overflow-y:auto;margin-top:12px;border-radius:12px;border:1px solid var(--line)}
+.master-products-table-wrap{margin-top:12px;border-radius:12px;border:1px solid var(--line);overflow:auto;max-height:min(78vh,calc(100vh - 260px));min-height:280px;background:#fff}
+.master-products-table{width:100%;border-collapse:collapse;font-size:12px}
+.master-products-table th,.master-products-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+.master-products-table th{background:#F5F0EA;font-weight:600;position:sticky;top:0;z-index:1}
+.master-products-table td:nth-child(3){white-space:normal;min-width:140px;max-width:280px}
 .empty{color:var(--muted);text-align:center;padding:40px;font-style:italic}
 .flex-gap{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .hidden-tab{display:none!important}
@@ -882,20 +887,11 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
   </div>
 </div>
 <div id="tab-master" class="hidden-tab">
-  <div class="card">
-    <div class="card-title">📦 Products / Items (<span id="item-count">0</span>)</div>
-    <div class="grid3">
-      <div><label class="lbl">Barcode</label><input class="fi" id="new-barcode" placeholder="Optional — scan or type"></div>
-      <div><label class="lbl">Item Code *</label><input class="fi" id="new-code" placeholder="Unique code, e.g. SKU-1001"></div>
-      <div><label class="lbl">Product Name *</label><input class="fi" id="new-name" placeholder="Description as on invoice"></div>
+  <div id="master-list-panel" class="card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <button type="button" class="btn btn-primary" style="padding:6px 16px;font-size:13px;font-weight:600;border-radius:8px" onclick="openMasterNewProduct()" title="Create new product">New</button>
+      <div class="card-title" style="margin:0;flex:1;min-width:180px">📦 Products / Items (<span id="item-count">0</span>)</div>
     </div>
-    <div class="grid5 mt12">
-      <div><label class="lbl">Unit of Measure</label><input class="fi" id="new-unit" placeholder="CRTN-18" value="CRTN"></div>
-      <div><label class="lbl">Unit Price (Cost KWD)</label><input class="fi" id="new-price" type="number" step="0.001"></div>
-      <div><label class="lbl">Supplier</label><select class="fi" id="new-item-sup"><option value="">-- Select --</option></select></div>
-      <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="addItem()">+ Add Item</button></div>
-    </div>
-    <div class="mt12 hint">UOM examples: <code class="mono">PCS</code> (1 piece per unit), <code class="mono">BOX-6</code> or <code class="mono">CRTN-24</code> (number after the dash is how many pieces one line qty represents when receiving stock). For extended fields (Department, Category, Brand, Sales Price, etc.), click <strong>Edit</strong> on any row or use <strong>Download Template</strong> to fill many at once.</div>
     <div class="mt12 flex-gap">
       <label class="btn btn-light" style="cursor:pointer">📥 Import Items CSV<input type="file" accept=".csv" style="display:none" onchange="importItemCSV(event)"></label>
       <label class="btn btn-light" style="cursor:pointer">📥 Import Items Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importItemXLSX(event)"></label>
@@ -918,9 +914,65 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
     </div>
     <div class="mt12">
       <label class="lbl">Search products (code, barcode, name, supplier, brand, category…)</label>
-      <input class="fi" id="item-search-filter" placeholder="Filter the table below…" oninput="renderAll()">
+      <input class="fi" id="item-search-filter" placeholder="Filter the table below…" oninput="onMasterItemFilterInput()">
     </div>
-    <div class="scroll-box"><table><thead><tr><th>Barcode</th><th>Code</th><th>Name</th><th>UOM</th><th>Cost Price</th><th>Sales Price</th><th>Brand</th><th>Division</th><th>Supplier</th><th style="width:110px">Actions</th></tr></thead><tbody id="item-table"></tbody></table></div>
+    <div class="master-products-table-wrap">
+      <table class="master-products-table"><thead><tr>
+        <th>Barcode</th><th>Code</th><th>Name</th><th>UOM</th><th>Cost</th><th>Sales</th>
+        <th>Dept</th><th>Category</th><th>Sub Cat</th><th>Brand</th>
+        <th>Div</th><th>Supp. Type</th><th>Cat Mgmt</th><th>Delivery</th><th>Purch.</th><th>Trade</th>
+        <th>Supplier</th><th>Created</th><th style="min-width:110px">Actions</th>
+      </tr></thead><tbody id="item-table"></tbody></table>
+    </div>
+    <div id="master-pager" class="mt12"></div>
+  </div>
+
+  <div id="master-new-panel" class="card" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button type="button" class="btn btn-light" onclick="closeMasterNewProduct()">← Back to list</button>
+      <div class="card-title" style="margin:0">➕ New Product</div>
+    </div>
+    <p class="hint" style="margin-bottom:14px">Enter a unique item code and product name. Use the same extended fields as <strong>Edit</strong> so new items align with the rest of master data.</p>
+    <div class="section-label">Basic Details</div>
+    <div class="grid2">
+      <div><label class="lbl">Barcode</label><input class="fi" id="pn-barcode" placeholder="Primary barcode"></div>
+      <div><label class="lbl">Item Code *</label><input class="fi" id="pn-code" placeholder="Unique code, e.g. SKU-1001"></div>
+    </div>
+    <div class="mt12"><label class="lbl">Product Name *</label><input class="fi" id="pn-name" placeholder="Description as on invoice"></div>
+    <div class="grid3 mt12">
+      <div><label class="lbl">UOM</label><input class="fi" id="pn-unit" placeholder="CRTN-18" value="CRTN"></div>
+      <div><label class="lbl">Cost Price / Unit (KWD)</label><input class="fi" type="number" step="0.001" id="pn-price"></div>
+      <div><label class="lbl">Sales Price / RSP (KWD)</label><input class="fi" type="number" step="0.001" id="pn-salesPrice"></div>
+    </div>
+    <div class="mt12"><label class="lbl">Supplier</label><select class="fi" id="pn-supplier"><option value="">-- Select --</option></select></div>
+
+    <div class="section-label">Classification <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:11px">(type to add new value → auto-saved to dropdown)</span></div>
+    <div class="grid3">
+      <div><label class="lbl">Department</label><input class="fi" id="pn-department" list="dl-department" placeholder="Type or pick"></div>
+      <div><label class="lbl">Category</label><input class="fi" id="pn-category" list="dl-category" placeholder="Type or pick"></div>
+      <div><label class="lbl">Sub Category</label><input class="fi" id="pn-subCategory" list="dl-subCategory" placeholder="Type or pick"></div>
+    </div>
+    <div class="grid3 mt12">
+      <div><label class="lbl">Brand</label><input class="fi" id="pn-brand" list="dl-brand" placeholder="Type or pick"></div>
+      <div><label class="lbl">Category Managed</label><input class="fi" id="pn-categoryManaged" list="dl-categoryManaged" placeholder="Type or pick"></div>
+      <div><label class="lbl">Supplier Type</label><input class="fi" id="pn-supplierType" list="dl-supplierType" placeholder="e.g. Returnable"></div>
+    </div>
+
+    <div class="section-label">Operational</div>
+    <div class="grid3">
+      <div><label class="lbl">Division / Movement</label><input class="fi" id="pn-division" list="dl-division" placeholder="Slow Moving / New Item..."></div>
+      <div><label class="lbl">Delivery Method</label><input class="fi" id="pn-deliveryMethod" list="dl-deliveryMethod" placeholder="Warehouse / Direct To Stores..."></div>
+      <div><label class="lbl">Purchase Action</label><input class="fi" id="pn-purchaseAction" list="dl-purchaseAction" placeholder="Purchase / No Purchase"></div>
+    </div>
+    <div class="grid3 mt12">
+      <div><label class="lbl">Trade Days</label><input class="fi" id="pn-tradeDays" list="dl-tradeDays" placeholder="1-3 MNT / 12 ABOVE..."></div>
+      <div><label class="lbl">Created On</label><input class="fi" type="datetime-local" id="pn-createdOn"></div>
+      <div style="display:flex;align-items:flex-end"><span class="hint" id="pn-createdOn-note" style="font-size:11px">Leave blank to set automatically on save</span></div>
+    </div>
+    <div class="mt16 flex-gap">
+      <button type="button" class="btn btn-light" onclick="closeMasterNewProduct()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveNewMasterProduct()">💾 Save new product</button>
+    </div>
   </div>
 </div>
 <div id="tab-suppliers" class="hidden-tab">
@@ -1472,7 +1524,8 @@ const TERMS_AR=[
 "\u064a\u062c\u0628 \u0639\u0644\u0649 \u0627\u0644\u0645\u0648\u0631\u062f \u0627\u0644\u0639\u0645\u0644 \u0639\u0644\u0649 \u0627\u0631\u062c\u0627\u0639 \u0627\u0644\u0628\u0636\u0627\u0639\u0629 \u0645\u0646 \u0646\u0641\u0633 \u0645\u0643\u0627\u0646 \u0627\u0644\u062a\u0633\u0644\u064a\u0645 \u0628\u0641\u062a\u0631\u0629 \u0627\u0642\u0635\u0627\u0647\u0627 7 \u0623\u064a\u0627\u0645 \u0645\u0646 \u062a\u0627\u0631\u064a\u062e \u0627\u0628\u0644\u0627\u063a \u0627\u0644\u0645\u0648\u0631\u062f \u0633\u0648\u0627\u0621 \u0639\u0646 \u0637\u0631\u064a\u0642 \u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0627\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0623\u0648 \u0639\u0646 \u0637\u0631\u064a\u0642 \u0627\u0644\u0647\u0627\u062a\u0641\u060c \u0639\u062f\u0627 \u0630\u0644\u0643 \u064a\u062d\u0642 \u0644\u0634\u0631\u0643\u0629 \u0641\u064a\u062f\u0627 \u0627\u062a\u0644\u0627\u0641 \u0627\u0644\u0628\u0636\u0627\u0639\u0629 \u0648\u0627\u0633\u062a\u0642\u0637\u0627\u0639 \u0627\u0644\u0642\u064a\u0645\u0629 \u0627\u0644\u0645\u062d\u062a\u0633\u0628\u0629 \u0639\u0644\u0649 \u0633\u0639\u0631 \u0627\u0644\u0634\u0631\u0627\u0621 \u0645\u0646 \u062d\u0633\u0627\u0628 \u0627\u0644\u0645\u0648\u0631\u062f \u062f\u0648\u0646 \u0627\u0644\u0631\u062c\u0648\u0639 \u0644\u0647."
 ];
 
-let suppliers=[],items=[],poHistory=[],poItems=[],hlIdx=-1,hlIdxBottom=-1,reps=[],itemSearchIndex=[],searchTimer=null,lastSaveWarn='',bottomSearchTimer=null,stockOnHand={},locations=[...ADDRESSES],transferHistory=[],transferItems=[],trSearchResultsLast=[],hlIdxTr=-1,transferSearchTimer=null,editingTransferHistoryIndex=null,editingPOHistoryIndex=null,stockSearchTimer=null,hlIdxStock=-1,stockSearchResultsLast=[],histVisibleIndexes=[],histSelectedMap={},trHistVisibleIndexes=[],trHistSelectedMap={},prHistory=[],prItems=[],editingPRHistoryIndex=null,prSearchTimer=null,hlIdxPR=-1,prSearchResultsLast=[],hlIdxPRBottom=-1,prBottomSearchResultsLast=[],iecSearchResultsLast=[],hlIdxIec=-1,iecSearchTimer=null;
+let suppliers=[],items=[],poHistory=[],poItems=[],hlIdx=-1,hlIdxBottom=-1,reps=[],itemSearchIndex=[],searchTimer=null,lastSaveWarn='',bottomSearchTimer=null,stockOnHand={},locations=[...ADDRESSES],transferHistory=[],transferItems=[],trSearchResultsLast=[],hlIdxTr=-1,transferSearchTimer=null,editingTransferHistoryIndex=null,editingPOHistoryIndex=null,stockSearchTimer=null,hlIdxStock=-1,stockSearchResultsLast=[],histVisibleIndexes=[],histSelectedMap={},trHistVisibleIndexes=[],trHistSelectedMap={},prHistory=[],prItems=[],editingPRHistoryIndex=null,prSearchTimer=null,hlIdxPR=-1,prSearchResultsLast=[],hlIdxPRBottom=-1,prBottomSearchResultsLast=[],iecSearchResultsLast=[],hlIdxIec=-1,iecSearchTimer=null,masterItemPage=0;
+const MASTER_ITEMS_PAGE_SIZE=80;
 // =============== EXTENDED PRODUCT FIELDS (v2) — 12 new fields ===============
 const PRODUCT_EXT_FIELDS=['department','category','subCategory','brand','division','supplierType','categoryManaged','deliveryMethod','purchaseAction','tradeDays','salesPrice','createdOn'];
 const PRODUCT_EXT_DROPDOWN_FIELDS=['department','category','subCategory','brand','division','supplierType','categoryManaged','deliveryMethod','purchaseAction','tradeDays'];
@@ -2247,6 +2300,10 @@ function switchTab(t,btn){
   closeSTOInlineDetail();
   closePRInlineDetail();
   closeActionsMenus();
+  if(t!=='master'){
+    const ml=document.getElementById('master-list-panel'),mn=document.getElementById('master-new-panel');
+    if(ml&&mn&&mn.style.display==='block'){mn.style.display='none';ml.style.display='block';}
+  }
   document.querySelectorAll('.content > div').forEach(d=>d.classList.add('hidden-tab'));
   var target=document.getElementById('tab-'+t);
   if(target)target.classList.remove('hidden-tab');
@@ -2506,7 +2563,8 @@ function renderAll(){
   syncSupplierLookupFromSelection();
   const histSup=document.getElementById('hist-export-supplier');
   if(histSup)histSup.innerHTML='<option value="">All suppliers</option>'+suppliers.map(s=>'<option value="'+escAttr(s.id)+'">'+escHtml(s.id+' - '+s.name)+'</option>').join('');
-  document.getElementById('new-item-sup').innerHTML='<option value="">-- Select --</option>'+suppliers.map(s=>'<option value="'+s.id+'">'+s.name+'</option>').join('');
+  const supOptsSimple='<option value="">-- Select --</option>'+suppliers.map(s=>'<option value="'+escAttr(s.id)+'">'+escHtml(s.name)+'</option>').join('');
+  const pnSup=document.getElementById('pn-supplier');if(pnSup)pnSup.innerHTML=supOptsSimple;
   renderLocations();
   renderTransferSelectors();
   document.getElementById('po-rep').innerHTML=reps.map(r=>'<option>'+r+'</option>').join('');
@@ -2539,19 +2597,38 @@ function renderAll(){
   const supMap={};suppliers.forEach(s=>{supMap[s.id]=s.name});
   const itemSearch=(document.getElementById('item-search-filter')||{value:''}).value.trim().toLowerCase();
   const filteredItems=items.map((it,i)=>({it,i})).filter(({it})=>!itemSearch||itemFlatSearchString(it).includes(itemSearch));
-  const ITEM_LIMIT=200;
-  const shownItems=filteredItems.slice(0,ITEM_LIMIT);
+  const totalPages=Math.max(1,Math.ceil(filteredItems.length/MASTER_ITEMS_PAGE_SIZE)||1);
+  if(masterItemPage>totalPages-1)masterItemPage=Math.max(0,totalPages-1);
+  const pageStart=masterItemPage*MASTER_ITEMS_PAGE_SIZE;
+  const shownItems=filteredItems.slice(pageStart,pageStart+MASTER_ITEMS_PAGE_SIZE);
+  const masterExtCell=v=>v?escHtml(v):'<span style="color:#bbb">—</span>';
+  const masterDateCell=iso=>{
+    if(!iso)return '<span style="color:#bbb">—</span>';
+    try{const d=new Date(iso);if(isNaN(+d))return escHtml(String(iso).slice(0,16));return escHtml(d.toLocaleString(undefined,{dateStyle:'short',timeStyle:'short'}))}catch(e){return escHtml(String(iso).slice(0,16))}
+  };
   document.getElementById('item-table').innerHTML=shownItems.map(({it,i})=>{
     const offs=getItemSupplierOffers(it);
     const supCell=offs.length?offs.map(o=>supMap[o.supplier]||o.supplier).join(', '):(supMap[it.supplier]||it.supplier);
     const alts=getItemAltBarcodes(it);
     const bcCell=it.barcode+(alts.length?' <span style="color:#888;font-size:11px">+'+alts.length+' alt</span>':'');
     const salesPriceCell=(it.salesPrice!=null&&it.salesPrice!=='')?Number(it.salesPrice).toFixed(3):'<span style="color:#bbb">—</span>';
-    const brandCell=it.brand?escHtml(it.brand):'<span style="color:#bbb">—</span>';
-    const divCell=it.division?'<span class="item-ext-badge">'+escHtml(it.division)+'</span>':'<span style="color:#bbb">—</span>';
+    const divCell=it.division?'<span class="item-ext-badge">'+escHtml(it.division)+'</span>':masterExtCell('');
     const codeEsc=escAttr(it.code);
-    return '<tr><td class="mono">'+bcCell+'</td><td class="fw">'+escHtml(it.code)+'</td><td>'+escHtml(it.name)+'</td><td>'+escHtml(it.unit)+'</td><td>'+Number(it.price).toFixed(3)+'</td><td>'+salesPriceCell+'</td><td style="font-size:12px">'+brandCell+'</td><td>'+divCell+'</td><td style="font-size:11px">'+escHtml(supCell)+'</td><td style="white-space:nowrap"><button class="btn-edit" onclick="openProductEditModal(\''+codeEsc+'\')">📝 Edit</button><button class="btn-danger" onclick="if(confirm(\'Remove this item?\')){items.splice('+i+',1);renderAll()}">✕</button></td></tr>';
-  }).join('')+(filteredItems.length>ITEM_LIMIT?'<tr><td colspan="10" style="text-align:center;color:#888;padding:12px">Showing '+ITEM_LIMIT+' of '+filteredItems.length+' items. Use search to find specific items.</td></tr>':'');
+    return '<tr><td class="mono">'+bcCell+'</td><td class="fw">'+escHtml(it.code)+'</td><td>'+escHtml(it.name)+'</td><td>'+escHtml(it.unit)+'</td><td>'+Number(it.price).toFixed(3)+'</td><td>'+salesPriceCell+'</td><td style="font-size:12px">'+masterExtCell(it.department)+'</td><td style="font-size:12px">'+masterExtCell(it.category)+'</td><td style="font-size:12px">'+masterExtCell(it.subCategory)+'</td><td style="font-size:12px">'+masterExtCell(it.brand)+'</td><td>'+divCell+'</td><td style="font-size:11px">'+masterExtCell(it.supplierType)+'</td><td style="font-size:11px">'+masterExtCell(it.categoryManaged)+'</td><td style="font-size:11px">'+masterExtCell(it.deliveryMethod)+'</td><td style="font-size:11px">'+masterExtCell(it.purchaseAction)+'</td><td style="font-size:11px">'+masterExtCell(it.tradeDays)+'</td><td style="font-size:11px">'+escHtml(supCell)+'</td><td style="font-size:11px">'+masterDateCell(it.createdOn)+'</td><td style="white-space:nowrap"><button class="btn-edit" onclick="openProductEditModal(\''+codeEsc+'\')">📝 Edit</button><button class="btn-danger" onclick="if(confirm(\'Remove this item?\')){items.splice('+i+',1);renderAll()}">✕</button></td></tr>';
+  }).join('');
+  const mp=document.getElementById('master-pager');
+  if(mp){
+    if(!filteredItems.length)mp.innerHTML='<div class="hint" style="text-align:center">No products match the filter.</div>';
+    else{
+      const fromN=filteredItems.length?pageStart+1:0;
+      const toN=pageStart+shownItems.length;
+      mp.innerHTML='<div class="flex-gap" style="justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 0">'+
+        '<button type="button" class="btn btn-light" onclick="masterItemPage--;renderAll()"'+(masterItemPage<=0?' disabled':'')+'>◀ Previous</button>'+
+        '<span style="font-size:13px;color:var(--text)">Page <strong>'+(masterItemPage+1)+'</strong> of <strong>'+totalPages+'</strong> · showing '+fromN+'–'+toN+' of '+filteredItems.length+'</span>'+
+        '<button type="button" class="btn btn-light" onclick="masterItemPage++;renderAll()"'+(masterItemPage>=totalPages-1?' disabled':'')+'>Next ▶</button>'+
+        '</div>';
+    }
+  }
   document.getElementById('hist-count').textContent=poHistory.length;
   renderPOHistory();
   renderStockTable();
@@ -3423,7 +3500,60 @@ function addRep(){const name=document.getElementById('new-rep-name').value.trim(
 function removeRep(i){if(!confirm('Remove this representative?'))return;reps.splice(i,1);if(!reps.length)reps=[...DEFAULT_REPS];renderAll()}
 
 function addSupplier(){const name=document.getElementById('new-sup-name').value.trim();if(!name)return alert('Name required');const id=document.getElementById('new-sup-id').value.trim()||'SUP'+Math.random().toString(36).slice(2,6).toUpperCase();suppliers.push(normalizeSupplier({id,name}));document.getElementById('new-sup-id').value='';document.getElementById('new-sup-name').value='';renderAll()}
-function addItem(){const code=document.getElementById('new-code').value.trim();const name=document.getElementById('new-name').value.trim();if(!code||!name)return alert('Code and Name required');items.push(normalizeItem({barcode:document.getElementById('new-barcode').value.trim(),code,name,unit:document.getElementById('new-unit').value.trim()||'PCS',price:parseFloat(document.getElementById('new-price').value)||0,supplier:document.getElementById('new-item-sup').value,createdOn:new Date().toISOString()}));['new-barcode','new-code','new-name','new-price'].forEach(id=>document.getElementById(id).value='');document.getElementById('new-unit').value='CRTN';renderAll()}
+function onMasterItemFilterInput(){masterItemPage=0;renderAll()}
+function resetNewProductForm(){
+  ['pn-barcode','pn-code','pn-name','pn-price','pn-salesPrice'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  const u=document.getElementById('pn-unit');if(u)u.value='CRTN';
+  const ps=document.getElementById('pn-supplier');if(ps)ps.value='';
+  PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{const el=document.getElementById('pn-'+k);if(el)el.value=''});
+  const co=document.getElementById('pn-createdOn');if(co)co.value='';
+  const note=document.getElementById('pn-createdOn-note');if(note)note.textContent='Leave blank to set automatically on save';
+}
+function openMasterNewProduct(){
+  const list=document.getElementById('master-list-panel');
+  const np=document.getElementById('master-new-panel');
+  refreshDropdownDatalists();
+  resetNewProductForm();
+  const pnSup=document.getElementById('pn-supplier');
+  if(pnSup)pnSup.innerHTML='<option value="">-- Select --</option>'+suppliers.map(s=>'<option value="'+escAttr(s.id)+'">'+escHtml(s.name)+'</option>').join('');
+  if(list)list.style.display='none';
+  if(np)np.style.display='block';
+}
+function closeMasterNewProduct(){
+  const list=document.getElementById('master-list-panel');
+  const np=document.getElementById('master-new-panel');
+  if(list)list.style.display='block';
+  if(np)np.style.display='none';
+}
+function saveNewMasterProduct(){
+  const code=normStr(document.getElementById('pn-code').value);
+  const name=normStr(document.getElementById('pn-name').value);
+  if(!code||!name)return alert('Item Code and Product Name are required.');
+  if(items.some(x=>String(x.code).toLowerCase()===code.toLowerCase()))return alert('This item code already exists. Choose a unique code.');
+  const barcode=normStr(document.getElementById('pn-barcode').value);
+  const unit=normStr(document.getElementById('pn-unit').value)||'PCS';
+  const priceRaw=document.getElementById('pn-price').value;
+  const price=priceRaw===''||priceRaw==null?0:(Number(priceRaw)||0);
+  const salesPriceRaw=document.getElementById('pn-salesPrice').value;
+  const supplier=normStr(document.getElementById('pn-supplier').value);
+  const o={barcode,code,name,unit,price,supplier};
+  if(salesPriceRaw!==''&&salesPriceRaw!=null){const sp=Number(salesPriceRaw);if(Number.isFinite(sp))o.salesPrice=sp}
+  let newOptsAdded=0;
+  PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{
+    const v=normStr(document.getElementById('pn-'+k).value);
+    if(v){o[k]=v;if(ensureFieldOption(k,v))newOptsAdded++;}
+  });
+  const coVal=document.getElementById('pn-createdOn').value;
+  if(coVal){o.createdOn=fromLocalDatetimeInputValue(coVal)}
+  else{o.createdOn=new Date().toISOString()}
+  items.push(normalizeItem(o));
+  if(saveData())autoBackupMasterData('new_product');
+  document.getElementById('item-search-filter').value='';
+  masterItemPage=Math.floor((items.length-1)/MASTER_ITEMS_PAGE_SIZE);
+  closeMasterNewProduct();
+  renderAll();
+  if(newOptsAdded>0)setTimeout(()=>alert('✅ Product saved.\n🆕 '+newOptsAdded+' new dropdown value(s) auto-added.'),10);
+}
 
 // CSV parsing
 function parseCSV(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(lines.length<2)return[];const h=lines[0].split(',').map(s=>s.trim().toLowerCase().replace(/['"]/g,''));return lines.slice(1).map(l=>{const v=l.split(',').map(s=>s.trim().replace(/['"]/g,''));const o={};h.forEach((k,i)=>o[k]=v[i]||'');return o})}

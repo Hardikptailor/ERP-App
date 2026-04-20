@@ -602,6 +602,23 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
 .detail-view{display:none;animation:detailFadeIn .2s ease}
 .detail-view.active{display:block}
 @keyframes detailFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* Product Edit Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(28,25,23,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;animation:modalFadeIn .2s ease-out}
+@keyframes modalFadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{background:var(--paper);border-radius:16px;max-width:900px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(28,25,23,.3);animation:modalSlideIn .25s cubic-bezier(.16,1,.3,1)}
+@keyframes modalSlideIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.modal-header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.modal-header h3{font-size:18px;font-weight:700;color:var(--sage-deep);margin:0;font-family:'Inter','Plus Jakarta Sans',system-ui,sans-serif}
+.modal-close{background:transparent;border:0;font-size:20px;color:var(--muted);cursor:pointer;padding:6px 10px;border-radius:8px;transition:background .15s}
+.modal-close:hover{background:var(--hover-bg);color:var(--text)}
+.modal-body{padding:22px 24px;overflow-y:auto;flex:1}
+.modal-body .section-label{font-weight:700;color:var(--sage-deep);font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:18px 0 10px;padding-top:14px;border-top:1px dashed var(--line)}
+.modal-body .section-label:first-child{border-top:0;padding-top:0;margin-top:0}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;background:#FAF9F5;border-radius:0 0 16px 16px}
+.item-ext-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;background:#F5EADD;color:var(--sage-deep);border:1px solid #E8C9A5;margin-right:4px;margin-bottom:2px}
+.item-row-ext{font-size:11px;color:var(--muted);margin-top:4px}
+.btn-edit{padding:4px 8px;border-radius:6px;border:1px solid #d4e4d8;background:#F5F0EA;color:var(--sage-deep);cursor:pointer;font-weight:600;font-size:12px;transition:all .15s;margin-right:4px}
+.btn-edit:hover{background:#E8D8CA;border-color:var(--sage)}
 .detail-back-bar{
   display:flex;justify-content:space-between;align-items:center;
   padding:6px 0 18px;margin-bottom:4px;
@@ -720,6 +737,9 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
     <div class="sb-nav-item" data-tab="master" onclick="sidebarNav('master')">
       <span class="sb-dot"></span><span class="sb-icon">📦</span><span>Master Data</span>
     </div>
+    <div class="sb-nav-item" data-tab="suppliers" onclick="sidebarNav('suppliers')">
+      <span class="sb-dot"></span><span class="sb-icon">🏢</span><span>Supplier Details</span>
+    </div>
     <div class="sb-nav-item" data-tab="item-catalog" onclick="sidebarNav('item-catalog')">
       <span class="sb-dot"></span><span class="sb-icon">🧾</span><span>Item Catalog Editor</span>
     </div>
@@ -768,6 +788,7 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
 <div class="tabs">
   <button class="active" onclick="switchTab('create',this)">📋 Create PO</button>
   <button onclick="switchTab('master',this)">📦 Master Data</button>
+  <button type="button" onclick="switchTab('suppliers',this)">🏢 Supplier Details</button>
   <button type="button" onclick="switchTab('item-catalog',this)">🧾 Item Catalog Editor</button>
   <button onclick="switchTab('history',this)">📂 PO History</button>
   <button onclick="switchTab('stock',this)">📊 Stock On Hand</button>
@@ -862,31 +883,47 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
 </div>
 <div id="tab-master" class="hidden-tab">
   <div class="card">
-    <div class="card-title">ℹ️ Master data — what lives here</div>
-    <p class="hint" style="line-height:1.55;margin-bottom:12px">Master data is the catalogue this app uses everywhere: <strong>Create PO</strong> (supplier list, item search, default unit price), <strong>Stock On Hand</strong> (product identity by code/barcode/name), and <strong>transfers / returns</strong>. Keep IDs and item codes stable so history and stock stay aligned.</p>
-    <div class="grid2" style="align-items:start">
-      <div>
-        <div style="font-weight:600;color:var(--sage-deep);margin-bottom:8px;font-size:13px">Suppliers</div>
-        <ul class="hint" style="line-height:1.6;padding-left:18px;margin:0">
-          <li><strong>Supplier ID</strong> — short unique code (e.g. SUP001). Used in imports and item linking; avoid changing it after you have POs.</li>
-          <li><strong>Name</strong> — display name on POs and filters.</li>
-          <li>CSV/Excel columns: <code class="mono">id</code> / <code class="mono">supplier_id</code>, <code class="mono">name</code> / <code class="mono">supplier_name</code>.</li>
-        </ul>
-      </div>
-      <div>
-        <div style="font-weight:600;color:var(--sage-deep);margin-bottom:8px;font-size:13px">Products / items</div>
-        <ul class="hint" style="line-height:1.6;padding-left:18px;margin:0">
-          <li><strong>Item code</strong> — primary key in this tool; must be unique.</li>
-          <li><strong>Barcode</strong> — optional; speeds search and stock import matching.</li>
-          <li><strong>UOM</strong> — pack label (e.g. CRTN, CRTN-24). Receipts use <strong>qty × pack size</strong> as pieces (PCS) when the name includes a number (e.g. CRTN-24 → 24 PCS per line unit).</li>
-          <li><strong>Unit price</strong> — default KWD price on new PO lines (you can still override on the PO).</li>
-          <li><strong>Supplier</strong> — ties the item to one vendor for PO filtering and defaults.</li>
-          <li>Import columns: <code class="mono">barcode</code>, <code class="mono">code</code> / <code class="mono">item_code</code>, <code class="mono">name</code>, <code class="mono">unit</code> / <code class="mono">uom</code>, <code class="mono">price</code>, <code class="mono">supplier</code> / <code class="mono">supplier_id</code>.</li>
-        </ul>
-      </div>
+    <div class="card-title">📦 Products / Items (<span id="item-count">0</span>)</div>
+    <div class="grid3">
+      <div><label class="lbl">Barcode</label><input class="fi" id="new-barcode" placeholder="Optional — scan or type"></div>
+      <div><label class="lbl">Item Code *</label><input class="fi" id="new-code" placeholder="Unique code, e.g. SKU-1001"></div>
+      <div><label class="lbl">Product Name *</label><input class="fi" id="new-name" placeholder="Description as on invoice"></div>
     </div>
-    <div class="mt12 hint" style="line-height:1.55;padding:12px 14px;background:#F5F0EA;border-radius:12px;border:1px solid #d4e4d8"><strong>Save &amp; backups:</strong> Use <strong>Save Master Data</strong> or <strong>Save All Data</strong> in the header to persist to browser storage. Saving master data also triggers a JSON backup download. <strong>Clear</strong> actions are destructive — export or back up first.</div>
+    <div class="grid5 mt12">
+      <div><label class="lbl">Unit of Measure</label><input class="fi" id="new-unit" placeholder="CRTN-18" value="CRTN"></div>
+      <div><label class="lbl">Unit Price (Cost KWD)</label><input class="fi" id="new-price" type="number" step="0.001"></div>
+      <div><label class="lbl">Supplier</label><select class="fi" id="new-item-sup"><option value="">-- Select --</option></select></div>
+      <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="addItem()">+ Add Item</button></div>
+    </div>
+    <div class="mt12 hint">UOM examples: <code class="mono">PCS</code> (1 piece per unit), <code class="mono">BOX-6</code> or <code class="mono">CRTN-24</code> (number after the dash is how many pieces one line qty represents when receiving stock). For extended fields (Department, Category, Brand, Sales Price, etc.), click <strong>Edit</strong> on any row or use <strong>Download Template</strong> to fill many at once.</div>
+    <div class="mt12 flex-gap">
+      <label class="btn btn-light" style="cursor:pointer">📥 Import Items CSV<input type="file" accept=".csv" style="display:none" onchange="importItemCSV(event)"></label>
+      <label class="btn btn-light" style="cursor:pointer">📥 Import Items Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importItemXLSX(event)"></label>
+      <span class="hint">Columns: barcode, code, name, unit, price, supplier</span>
+      <button class="btn btn-light" onclick="saveMasterData()">💾 Save Master Data</button>
+      <button class="btn btn-light" onclick="refreshMasterData()">🔄 Refresh</button>
+      <button class="btn-danger" style="margin-left:auto" onclick="clearProductData()">🗑 Clear Products</button>
+    </div>
+    <div class="mt12 flex-gap" style="padding:14px 16px;background:linear-gradient(135deg,#FBF2E8 0%,#F5EADD 100%);border-radius:12px;border:1px solid #E8C9A5;align-items:center">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <strong style="color:var(--sage-deep);font-size:13px">✨ Extended Fields (Department, Category, Brand, Sales Price, etc.)</strong>
+        <span class="hint" style="font-size:12px">Download pre-filled template → fill 12 extended fields in Excel → import back. New dropdown values auto-added.</span>
+      </div>
+      <button type="button" class="btn btn-light" style="margin-left:auto" onclick="downloadProductFieldsTemplate()">📋 Download Template</button>
+      <label class="btn btn-primary" style="cursor:pointer">📥 Import Fields Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importProductFieldsXLSX(event)"></label>
+    </div>
+    <div id="import-progress" class="progress-wrap">
+      <div class="progress-bar"><div id="import-progress-fill" class="progress-fill"></div></div>
+      <div id="import-progress-text" class="progress-text">Preparing import...</div>
+    </div>
+    <div class="mt12">
+      <label class="lbl">Search products (code, barcode, name, supplier, brand, category…)</label>
+      <input class="fi" id="item-search-filter" placeholder="Filter the table below…" oninput="renderAll()">
+    </div>
+    <div class="scroll-box"><table><thead><tr><th>Barcode</th><th>Code</th><th>Name</th><th>UOM</th><th>Cost Price</th><th>Sales Price</th><th>Brand</th><th>Division</th><th>Supplier</th><th style="width:110px">Actions</th></tr></thead><tbody id="item-table"></tbody></table></div>
   </div>
+</div>
+<div id="tab-suppliers" class="hidden-tab">
   <div class="card">
     <div class="card-title">🏢 Suppliers (<span id="sup-count">0</span>)</div>
     <div class="grid2">
@@ -899,46 +936,14 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
       <label class="btn btn-light" style="cursor:pointer">📥 Import CSV<input type="file" accept=".csv" style="display:none" onchange="importSupCSV(event)"></label>
       <label class="btn btn-light" style="cursor:pointer">📥 Import Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importSupXLSX(event)"></label>
       <button class="btn btn-light" onclick="saveMasterData()">💾 Save Master Data</button>
-      <button class="btn btn-light" onclick="refreshMasterData()">🔄 Refresh Master Data</button>
-      <button class="btn-danger" onclick="clearSupplierData()">🗑 Clear Suppliers</button>
-      <button class="btn-danger" onclick="clearProductData()">🗑 Clear Products</button>
-      <button class="btn-danger" onclick="clearMasterData()">🗑 Clear All</button>
-    </div>
-    <div id="import-progress" class="progress-wrap">
-      <div class="progress-bar"><div id="import-progress-fill" class="progress-fill"></div></div>
-      <div id="import-progress-text" class="progress-text">Preparing import...</div>
+      <button class="btn btn-light" onclick="refreshMasterData()">🔄 Refresh</button>
+      <button class="btn-danger" style="margin-left:auto" onclick="clearSupplierData()">🗑 Clear Suppliers</button>
     </div>
     <div class="mt12">
       <label class="lbl">Search Supplier (ID or Name)</label>
       <input class="fi" id="sup-search" placeholder="Type supplier ID or name..." oninput="onSupplierSearchInput()">
     </div>
-    <div class="scroll-box" style="max-height:200px"><table><thead><tr><th>ID</th><th>Name</th><th title="Products in master list linked to this supplier ID">Linked products</th><th></th></tr></thead><tbody id="sup-table"></tbody></table></div>
-  </div>
-  <div class="card">
-    <div class="card-title">📦 Products / Items (<span id="item-count">0</span>)</div>
-    <div class="grid3">
-      <div><label class="lbl">Barcode</label><input class="fi" id="new-barcode" placeholder="Optional — scan or type"></div>
-      <div><label class="lbl">Item Code *</label><input class="fi" id="new-code" placeholder="Unique code, e.g. SKU-1001"></div>
-      <div><label class="lbl">Product Name *</label><input class="fi" id="new-name" placeholder="Description as on invoice"></div>
-    </div>
-    <div class="grid5 mt12">
-      <div><label class="lbl">Unit of Measure</label><input class="fi" id="new-unit" placeholder="CRTN-18" value="CRTN"></div>
-      <div><label class="lbl">Unit Price (KWD)</label><input class="fi" id="new-price" type="number" step="0.001"></div>
-      <div><label class="lbl">Supplier</label><select class="fi" id="new-item-sup"><option value="">-- Select --</option></select></div>
-      <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="addItem()">+ Add Item</button></div>
-    </div>
-    <div class="mt12 hint">UOM examples: <code class="mono">PCS</code> (1 piece per unit), <code class="mono">BOX-6</code> or <code class="mono">CRTN-24</code> (number after the dash is how many pieces one line qty represents when receiving stock).</div>
-    <div class="mt12 flex-gap">
-      <label class="btn btn-light" style="cursor:pointer">📥 Import Items CSV<input type="file" accept=".csv" style="display:none" onchange="importItemCSV(event)"></label>
-      <label class="btn btn-light" style="cursor:pointer">📥 Import Items Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importItemXLSX(event)"></label>
-      <span class="hint">Columns: barcode, code, name, unit, price, supplier (supplier must match an existing Supplier ID)</span>
-      <button class="btn-danger" style="margin-left:auto" onclick="if(confirm('Clear ALL items?')){items=[];saveData();renderAll()}">Clear All</button>
-    </div>
-    <div class="mt12">
-      <label class="lbl">Search products (code, barcode, name, supplier)</label>
-      <input class="fi" id="item-search-filter" placeholder="Filter the table below…" oninput="renderAll()">
-    </div>
-    <div class="scroll-box"><table><thead><tr><th>Barcode</th><th>Code</th><th>Name</th><th>UOM</th><th>Unit Price</th><th>Supplier</th><th></th></tr></thead><tbody id="item-table"></tbody></table></div>
+    <div class="scroll-box" style="max-height:400px"><table><thead><tr><th>ID</th><th>Name</th><th title="Products in master list linked to this supplier ID">Linked products</th><th></th></tr></thead><tbody id="sup-table"></tbody></table></div>
   </div>
 </div>
 <div id="tab-item-catalog" class="hidden-tab">
@@ -1396,6 +1401,58 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
 </div>
 </div><!-- /#app-main -->
 
+<!-- Product Edit Modal (extended fields) -->
+<div id="product-edit-modal" class="modal-backdrop" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📝 Edit Product — <span id="pem-code-title" style="color:var(--text);font-weight:600"></span></h3>
+      <button class="modal-close" onclick="closeProductEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="section-label">Basic Details</div>
+      <div class="grid2">
+        <div><label class="lbl">Barcode</label><input class="fi" id="pem-barcode" placeholder="Primary barcode"></div>
+        <div><label class="lbl">Item Code</label><input class="fi" id="pem-code" readonly style="background:#F5F0EA;font-weight:600"></div>
+      </div>
+      <div class="mt12"><label class="lbl">Product Name *</label><input class="fi" id="pem-name"></div>
+      <div class="grid3 mt12">
+        <div><label class="lbl">UOM</label><input class="fi" id="pem-unit"></div>
+        <div><label class="lbl">Cost Price / Unit Price (KWD)</label><input class="fi" type="number" step="0.001" id="pem-price"></div>
+        <div><label class="lbl">Sales Price / RSP (KWD)</label><input class="fi" type="number" step="0.001" id="pem-salesPrice"></div>
+      </div>
+      <div class="mt12"><label class="lbl">Supplier</label><select class="fi" id="pem-supplier"><option value="">-- Select --</option></select></div>
+
+      <div class="section-label">Classification <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:11px">(type to add new value → auto-saved to dropdown)</span></div>
+      <div class="grid3">
+        <div><label class="lbl">Department</label><input class="fi" id="pem-department" list="dl-department" placeholder="Type or pick"><datalist id="dl-department"></datalist></div>
+        <div><label class="lbl">Category</label><input class="fi" id="pem-category" list="dl-category" placeholder="Type or pick"><datalist id="dl-category"></datalist></div>
+        <div><label class="lbl">Sub Category</label><input class="fi" id="pem-subCategory" list="dl-subCategory" placeholder="Type or pick"><datalist id="dl-subCategory"></datalist></div>
+      </div>
+      <div class="grid3 mt12">
+        <div><label class="lbl">Brand</label><input class="fi" id="pem-brand" list="dl-brand" placeholder="Type or pick"><datalist id="dl-brand"></datalist></div>
+        <div><label class="lbl">Category Managed</label><input class="fi" id="pem-categoryManaged" list="dl-categoryManaged" placeholder="Type or pick"><datalist id="dl-categoryManaged"></datalist></div>
+        <div><label class="lbl">Supplier Type</label><input class="fi" id="pem-supplierType" list="dl-supplierType" placeholder="e.g. Returnable"><datalist id="dl-supplierType"></datalist></div>
+      </div>
+
+      <div class="section-label">Operational</div>
+      <div class="grid3">
+        <div><label class="lbl">Division / Movement</label><input class="fi" id="pem-division" list="dl-division" placeholder="Slow Moving / New Item..."><datalist id="dl-division"></datalist></div>
+        <div><label class="lbl">Delivery Method</label><input class="fi" id="pem-deliveryMethod" list="dl-deliveryMethod" placeholder="Warehouse / Direct To Stores..."><datalist id="dl-deliveryMethod"></datalist></div>
+        <div><label class="lbl">Purchase Action</label><input class="fi" id="pem-purchaseAction" list="dl-purchaseAction" placeholder="Purchase / No Purchase"><datalist id="dl-purchaseAction"></datalist></div>
+      </div>
+      <div class="grid3 mt12">
+        <div><label class="lbl">Trade Days</label><input class="fi" id="pem-tradeDays" list="dl-tradeDays" placeholder="1-3 MNT / 12 ABOVE..."><datalist id="dl-tradeDays"></datalist></div>
+        <div><label class="lbl">Created On</label><input class="fi" type="datetime-local" id="pem-createdOn"></div>
+        <div style="display:flex;align-items:flex-end"><span class="hint" id="pem-createdOn-note" style="font-size:11px">Auto-set when item was first created</span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-light" onclick="closeProductEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProductFromModal()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal popups removed — replaced with inline full-page detail views inside each history tab -->
 
 
@@ -1416,6 +1473,105 @@ const TERMS_AR=[
 ];
 
 let suppliers=[],items=[],poHistory=[],poItems=[],hlIdx=-1,hlIdxBottom=-1,reps=[],itemSearchIndex=[],searchTimer=null,lastSaveWarn='',bottomSearchTimer=null,stockOnHand={},locations=[...ADDRESSES],transferHistory=[],transferItems=[],trSearchResultsLast=[],hlIdxTr=-1,transferSearchTimer=null,editingTransferHistoryIndex=null,editingPOHistoryIndex=null,stockSearchTimer=null,hlIdxStock=-1,stockSearchResultsLast=[],histVisibleIndexes=[],histSelectedMap={},trHistVisibleIndexes=[],trHistSelectedMap={},prHistory=[],prItems=[],editingPRHistoryIndex=null,prSearchTimer=null,hlIdxPR=-1,prSearchResultsLast=[],hlIdxPRBottom=-1,prBottomSearchResultsLast=[],iecSearchResultsLast=[],hlIdxIec=-1,iecSearchTimer=null;
+// =============== EXTENDED PRODUCT FIELDS (v2) — 12 new fields ===============
+const PRODUCT_EXT_FIELDS=['department','category','subCategory','brand','division','supplierType','categoryManaged','deliveryMethod','purchaseAction','tradeDays','salesPrice','createdOn'];
+const PRODUCT_EXT_DROPDOWN_FIELDS=['department','category','subCategory','brand','division','supplierType','categoryManaged','deliveryMethod','purchaseAction','tradeDays'];
+const PRODUCT_EXT_META={
+  department:{label:'Department',col:'Department'},
+  category:{label:'Category',col:'Category'},
+  subCategory:{label:'Sub Category',col:'Sub Category'},
+  brand:{label:'Brand',col:'Brand'},
+  division:{label:'Division',col:'Division'},
+  supplierType:{label:'Supplier Type',col:'Supplier Type'},
+  categoryManaged:{label:'Category Managed',col:'Category Managed'},
+  deliveryMethod:{label:'Delivery Method',col:'Delivery Method'},
+  purchaseAction:{label:'Purchase Action',col:'Purchase Action'},
+  tradeDays:{label:'Trade Days',col:'Trade Days'},
+  salesPrice:{label:'Sales Price (KWD)',col:'Sales Price (KWD)'},
+  createdOn:{label:'Created On',col:'Created On'}
+};
+const DEFAULT_FIELD_OPTIONS={
+  department:[],category:[],subCategory:[],brand:[],
+  division:['Slow Moving','New Item','Regular Item','Top Selling','Delist'],
+  supplierType:['Returnable','Non-Returnable'],
+  categoryManaged:[],
+  deliveryMethod:['Warehouse','Direct To Stores','Direct To Stores & Warehouse'],
+  purchaseAction:['Purchase','No Purchase'],
+  tradeDays:['1-3 MNT','4-6 MNT','7-9 MNT','10-12 MNT','12 ABOVE']
+};
+let fieldOptions=JSON.parse(JSON.stringify(DEFAULT_FIELD_OPTIONS));
+let editingProductCode=null;
+
+function ensureFieldOption(key,value){
+  const v=normStr(value);
+  if(!v)return false;
+  if(!Array.isArray(fieldOptions[key]))fieldOptions[key]=[];
+  if(fieldOptions[key].some(x=>String(x).toLowerCase()===v.toLowerCase()))return false;
+  fieldOptions[key].push(v);
+  return true;
+}
+function getFieldOptions(key){return Array.isArray(fieldOptions[key])?fieldOptions[key]:[]}
+function rebuildFieldOptionsFromItems(){
+  const merged=JSON.parse(JSON.stringify(DEFAULT_FIELD_OPTIONS));
+  Object.keys(fieldOptions||{}).forEach(k=>{
+    if(!Array.isArray(merged[k]))merged[k]=[];
+    (fieldOptions[k]||[]).forEach(v=>{
+      const vv=normStr(v);
+      if(vv&&!merged[k].some(x=>String(x).toLowerCase()===vv.toLowerCase()))merged[k].push(vv);
+    });
+  });
+  items.forEach(it=>{
+    PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{
+      const v=normStr(it[k]);
+      if(!v)return;
+      if(!Array.isArray(merged[k]))merged[k]=[];
+      if(!merged[k].some(x=>String(x).toLowerCase()===v.toLowerCase()))merged[k].push(v);
+    });
+  });
+  fieldOptions=merged;
+}
+function toLocalDatetimeInputValue(iso){
+  if(!iso)return'';
+  try{
+    const d=new Date(iso);if(isNaN(d.getTime()))return'';
+    const pad=n=>String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  }catch{return''}
+}
+function fromLocalDatetimeInputValue(v){
+  if(!v)return'';
+  try{const d=new Date(v);if(isNaN(d.getTime()))return normStr(v);return d.toISOString()}catch{return normStr(v)}
+}
+function parseImportedDateTime(raw){
+  if(raw==null||raw==='')return'';
+  const s=String(raw).trim();
+  if(!s)return'';
+  if(/^\d+(\.\d+)?$/.test(s)){
+    const n=Number(s);
+    if(n>25569&&n<80000){
+      const ms=(n-25569)*86400*1000;
+      const d=new Date(ms);
+      if(!isNaN(d.getTime()))return d.toISOString();
+    }
+  }
+  const d=new Date(s);
+  if(!isNaN(d.getTime()))return d.toISOString();
+  return s;
+}
+function formatDateTimeForDisplay(iso){
+  if(!iso)return'';
+  const d=new Date(iso);
+  if(isNaN(d.getTime()))return String(iso);
+  const pad=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function refreshDropdownDatalists(){
+  PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{
+    const dl=document.getElementById('dl-'+k);
+    if(!dl)return;
+    dl.innerHTML=getFieldOptions(k).map(v=>'<option value="'+escAttr(v)+'"></option>').join('');
+  });
+}
 const CLOUD_SYNC_ENABLED=true;
 const SUPABASE_URL='https://uatxbbyrtnmnadrroemf.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhdHhiYnlydG5tbmFkcnJvZW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NTgyNjgsImV4cCI6MjA5MTQzNDI2OH0.JxrFZwOzL0W9_y1dInHX5v4o4j5Vz88t5lwRJYAQZrI';
@@ -1472,6 +1628,17 @@ function normalizeItem(i){
     Object.keys(i.extraFields).forEach(k=>{const nk=normStr(k);if(nk)ef[nk]=String(i.extraFields[k]==null?'':i.extraFields[k])});
     if(Object.keys(ef).length)r.extraFields=ef;
   }
+  // --- 12 extended fields (v2) ---
+  ['department','category','subCategory','brand','division','supplierType','categoryManaged','deliveryMethod','purchaseAction','tradeDays'].forEach(k=>{
+    const v=normStr(i[k]);
+    if(v)r[k]=v;
+  });
+  if(i.salesPrice!==undefined&&i.salesPrice!==null&&String(i.salesPrice).trim()!==''){
+    const sp=Number(i.salesPrice);
+    if(Number.isFinite(sp))r.salesPrice=sp;
+  }
+  const co=normStr(i.createdOn);
+  if(co)r.createdOn=co;
   return r;
 }
 function getItemSupplierOffers(it){return Array.isArray(it&&it.supplierOffers)?it.supplierOffers:[]}
@@ -1510,6 +1677,9 @@ function itemFlatSearchString(it){
   parts.push(sn);
   getItemSupplierOffers(it).forEach(o=>{const sn2=(suppliers.find(s=>s.id===o.supplier)||{}).name||'';if(sn2)parts.push(sn2)});
   if(it.extraFields)Object.entries(it.extraFields).forEach(([k,v])=>{parts.push(k,String(v))});
+  // include extended fields in search
+  PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{if(it[k])parts.push(it[k])});
+  if(it.salesPrice!=null)parts.push(String(it.salesPrice));
   return parts.join(' ').toLowerCase();
 }
 function rebuildSearchIndex(){itemSearchIndex=items.map((i,idx)=>({idx,text:itemFlatSearchString(i)}))}
@@ -1812,6 +1982,7 @@ function load(){
   const rawLocations=localStorage.getItem('po_locations2');
   const rawTransfers=localStorage.getItem('po_transfers2');
   const rawPR=localStorage.getItem('po_pr_history2');
+  const rawFieldOpts=localStorage.getItem('po_field_options2');
   try{suppliers=rawSup===null?[]:(JSON.parse(rawSup)||[])}catch{suppliers=[]}
   try{items=rawItems===null?[]:(JSON.parse(rawItems)||[])}catch{items=[]}
   try{poHistory=rawHist===null?[]:(JSON.parse(rawHist)||[])}catch{poHistory=[]}
@@ -1821,6 +1992,12 @@ function load(){
   try{locations=rawLocations===null?[...ADDRESSES]:(JSON.parse(rawLocations)||[])}catch{locations=[...ADDRESSES]}
   try{transferHistory=rawTransfers===null?[]:(JSON.parse(rawTransfers)||[])}catch{transferHistory=[]}
   try{prHistory=rawPR===null?[]:(JSON.parse(rawPR)||[])}catch{prHistory=[]}
+  try{
+    if(rawFieldOpts){
+      const parsed=JSON.parse(rawFieldOpts);
+      if(parsed&&typeof parsed==='object')fieldOptions=parsed;
+    }
+  }catch{/* keep defaults */}
   if(!Array.isArray(locations)||!locations.length)locations=[...ADDRESSES];
   if(rawSup===null)suppliers=[{id:"SUP001",name:"Kuwait Indo Trading Company W.L.L."},{id:"SUP002",name:"Al Safi Danone"},{id:"SUP003",name:"Kitco Manufacturing"}];
   if(rawItems===null)items=[
@@ -1833,6 +2010,7 @@ function load(){
   if(!reps.length)reps=[...DEFAULT_REPS];
   suppliers=suppliers.map(normalizeSupplier).filter(s=>s.name);
   items=items.map(normalizeItem).filter(i=>i.code&&i.name);
+  rebuildFieldOptionsFromItems();
   rebuildSearchIndex();
 }
 function buildSharedStatePayload(){
@@ -1844,7 +2022,8 @@ function buildSharedStatePayload(){
     stockOnHand,
     locations,
     transferHistory,
-    prHistory
+    prHistory,
+    fieldOptions
   };
 }
 function applySharedStatePayload(payload){
@@ -1857,6 +2036,7 @@ function applySharedStatePayload(payload){
   const nextLoc=Array.isArray(payload.locations)&&payload.locations.length?payload.locations:[...ADDRESSES];
   const nextTransfers=Array.isArray(payload.transferHistory)?payload.transferHistory:[];
   const nextPR=Array.isArray(payload.prHistory)?payload.prHistory:[];
+  const nextFieldOpts=(payload.fieldOptions&&typeof payload.fieldOptions==='object'&&!Array.isArray(payload.fieldOptions))?payload.fieldOptions:null;
 
   suppliers=nextSup.map(normalizeSupplier).filter(s=>s.name);
   items=nextItems.map(normalizeItem).filter(i=>i.code&&i.name);
@@ -1867,7 +2047,9 @@ function applySharedStatePayload(payload){
   locations=nextLoc;
   transferHistory=nextTransfers;
   prHistory=nextPR;
+  if(nextFieldOpts)fieldOptions=nextFieldOpts;
   if(!Array.isArray(locations)||!locations.length)locations=[...ADDRESSES];
+  rebuildFieldOptionsFromItems();
   rebuildSearchIndex();
   return true;
 }
@@ -1979,6 +2161,7 @@ function saveData(){
     localStorage.setItem('po_locations2',JSON.stringify(locations));
     localStorage.setItem('po_transfers2',JSON.stringify(transferHistory));
     localStorage.setItem('po_pr_history2',JSON.stringify(prHistory));
+    localStorage.setItem('po_field_options2',JSON.stringify(fieldOptions));
     lastSaveWarn='';
   }catch(e){
     console.warn('localStorage full — skipping local save, using Supabase only.');
@@ -2047,7 +2230,8 @@ function nextPONumber(dateObj=new Date()){
 // Tab metadata for sidebar/topbar sync
 var TAB_META={
   'create':{title:'Create PO',sub:'Create new purchase orders for suppliers'},
-  'master':{title:'Master Data',sub:'Suppliers and product catalog'},
+  'master':{title:'Master Data',sub:'Product catalog and extended fields'},
+  'suppliers':{title:'Supplier Details',sub:'Manage suppliers for procurement'},
   'item-catalog':{title:'Item Catalog Editor',sub:'Edit individual item details'},
   'history':{title:'PO History',sub:'View and manage purchase order history'},
   'stock':{title:'Stock On Hand',sub:'Current inventory across all locations'},
@@ -2362,8 +2546,12 @@ function renderAll(){
     const supCell=offs.length?offs.map(o=>supMap[o.supplier]||o.supplier).join(', '):(supMap[it.supplier]||it.supplier);
     const alts=getItemAltBarcodes(it);
     const bcCell=it.barcode+(alts.length?' <span style="color:#888;font-size:11px">+'+alts.length+' alt</span>':'');
-    return '<tr><td class="mono">'+bcCell+'</td><td class="fw">'+it.code+'</td><td>'+it.name+'</td><td>'+it.unit+'</td><td>'+Number(it.price).toFixed(3)+'</td><td style="font-size:11px">'+supCell+'</td><td><button class="btn-danger" onclick="items.splice('+i+',1);renderAll()">✕</button></td></tr>';
-  }).join('')+(filteredItems.length>ITEM_LIMIT?'<tr><td colspan="7" style="text-align:center;color:#888;padding:12px">Showing '+ITEM_LIMIT+' of '+filteredItems.length+' items. Use search to find specific items.</td></tr>':'');
+    const salesPriceCell=(it.salesPrice!=null&&it.salesPrice!=='')?Number(it.salesPrice).toFixed(3):'<span style="color:#bbb">—</span>';
+    const brandCell=it.brand?escHtml(it.brand):'<span style="color:#bbb">—</span>';
+    const divCell=it.division?'<span class="item-ext-badge">'+escHtml(it.division)+'</span>':'<span style="color:#bbb">—</span>';
+    const codeEsc=escAttr(it.code);
+    return '<tr><td class="mono">'+bcCell+'</td><td class="fw">'+escHtml(it.code)+'</td><td>'+escHtml(it.name)+'</td><td>'+escHtml(it.unit)+'</td><td>'+Number(it.price).toFixed(3)+'</td><td>'+salesPriceCell+'</td><td style="font-size:12px">'+brandCell+'</td><td>'+divCell+'</td><td style="font-size:11px">'+escHtml(supCell)+'</td><td style="white-space:nowrap"><button class="btn-edit" onclick="openProductEditModal(\''+codeEsc+'\')">📝 Edit</button><button class="btn-danger" onclick="if(confirm(\'Remove this item?\')){items.splice('+i+',1);renderAll()}">✕</button></td></tr>';
+  }).join('')+(filteredItems.length>ITEM_LIMIT?'<tr><td colspan="10" style="text-align:center;color:#888;padding:12px">Showing '+ITEM_LIMIT+' of '+filteredItems.length+' items. Use search to find specific items.</td></tr>':'');
   document.getElementById('hist-count').textContent=poHistory.length;
   renderPOHistory();
   renderStockTable();
@@ -2376,6 +2564,7 @@ function renderAll(){
   renderPRItems();
   renderPRHistory();
   refreshItemCatalogDropdown();
+  refreshDropdownDatalists();
 }
 function onSupplierSearchInput(){renderAll()}
 
@@ -3234,7 +3423,7 @@ function addRep(){const name=document.getElementById('new-rep-name').value.trim(
 function removeRep(i){if(!confirm('Remove this representative?'))return;reps.splice(i,1);if(!reps.length)reps=[...DEFAULT_REPS];renderAll()}
 
 function addSupplier(){const name=document.getElementById('new-sup-name').value.trim();if(!name)return alert('Name required');const id=document.getElementById('new-sup-id').value.trim()||'SUP'+Math.random().toString(36).slice(2,6).toUpperCase();suppliers.push(normalizeSupplier({id,name}));document.getElementById('new-sup-id').value='';document.getElementById('new-sup-name').value='';renderAll()}
-function addItem(){const code=document.getElementById('new-code').value.trim();const name=document.getElementById('new-name').value.trim();if(!code||!name)return alert('Code and Name required');items.push(normalizeItem({barcode:document.getElementById('new-barcode').value.trim(),code,name,unit:document.getElementById('new-unit').value.trim()||'PCS',price:parseFloat(document.getElementById('new-price').value)||0,supplier:document.getElementById('new-item-sup').value}));['new-barcode','new-code','new-name','new-price'].forEach(id=>document.getElementById(id).value='');document.getElementById('new-unit').value='CRTN';renderAll()}
+function addItem(){const code=document.getElementById('new-code').value.trim();const name=document.getElementById('new-name').value.trim();if(!code||!name)return alert('Code and Name required');items.push(normalizeItem({barcode:document.getElementById('new-barcode').value.trim(),code,name,unit:document.getElementById('new-unit').value.trim()||'PCS',price:parseFloat(document.getElementById('new-price').value)||0,supplier:document.getElementById('new-item-sup').value,createdOn:new Date().toISOString()}));['new-barcode','new-code','new-name','new-price'].forEach(id=>document.getElementById(id).value='');document.getElementById('new-unit').value='CRTN';renderAll()}
 
 // CSV parsing
 function parseCSV(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(lines.length<2)return[];const h=lines[0].split(',').map(s=>s.trim().toLowerCase().replace(/['"]/g,''));return lines.slice(1).map(l=>{const v=l.split(',').map(s=>s.trim().replace(/['"]/g,''));const o={};h.forEach((k,i)=>o[k]=v[i]||'');return o})}
@@ -3314,6 +3503,245 @@ function refreshMasterData(){load();renderAll();alert('Master data refreshed.')}
 function clearSupplierData(){if(!confirm('Clear all suppliers only?'))return;suppliers=[];poItems=[];renderAll();autoBackupMasterData('clear_suppliers');alert('Supplier data cleared. Backup downloaded.')}
 function clearProductData(){if(!confirm('Clear all products only?'))return;items=[];poItems=[];renderAll();autoBackupMasterData('clear_products');alert('Product data cleared. Backup downloaded.')}
 function clearMasterData(){if(!confirm('Clear all suppliers and products?'))return;suppliers=[];items=[];poItems=[];renderAll();autoBackupMasterData('clear_all');alert('Master data cleared. Backup downloaded. You can import a new file now.')}
+
+// =============== PRODUCT EDIT MODAL (extended fields) ===============
+function openProductEditModal(code){
+  const it=items.find(x=>String(x.code).toLowerCase()===String(code).toLowerCase());
+  if(!it){alert('Item not found: '+code);return}
+  editingProductCode=it.code;
+  refreshDropdownDatalists();
+  // Populate basic fields
+  document.getElementById('pem-code-title').textContent=it.code;
+  document.getElementById('pem-code').value=it.code;
+  document.getElementById('pem-barcode').value=it.barcode||'';
+  document.getElementById('pem-name').value=it.name||'';
+  document.getElementById('pem-unit').value=it.unit||'';
+  document.getElementById('pem-price').value=(it.price!=null&&it.price!=='')?it.price:'';
+  document.getElementById('pem-salesPrice').value=(it.salesPrice!=null&&it.salesPrice!=='')?it.salesPrice:'';
+  // Supplier dropdown
+  const supSel=document.getElementById('pem-supplier');
+  supSel.innerHTML='<option value="">-- Select --</option>'+suppliers.map(s=>'<option value="'+escAttr(s.id)+'"'+(String(s.id)===String(it.supplier)?' selected':'')+'>'+escHtml(s.id+' - '+s.name)+'</option>').join('');
+  // Extended dropdown fields
+  PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{
+    const el=document.getElementById('pem-'+k);
+    if(el)el.value=it[k]||'';
+  });
+  // Created On
+  const coEl=document.getElementById('pem-createdOn');
+  const note=document.getElementById('pem-createdOn-note');
+  if(it.createdOn){
+    if(coEl)coEl.value=toLocalDatetimeInputValue(it.createdOn);
+    if(note)note.textContent='Originally created: '+formatDateTimeForDisplay(it.createdOn);
+  }else{
+    if(coEl)coEl.value='';
+    if(note)note.textContent='Not set — will auto-set if left blank on save';
+  }
+  const modal=document.getElementById('product-edit-modal');
+  if(modal)modal.style.display='flex';
+}
+function closeProductEditModal(){
+  const modal=document.getElementById('product-edit-modal');
+  if(modal)modal.style.display='none';
+  editingProductCode=null;
+}
+function saveProductFromModal(){
+  if(!editingProductCode)return closeProductEditModal();
+  const idx=items.findIndex(x=>String(x.code).toLowerCase()===String(editingProductCode).toLowerCase());
+  if(idx<0){alert('Item no longer exists');return closeProductEditModal()}
+  const name=normStr(document.getElementById('pem-name').value);
+  if(!name)return alert('Product name required');
+  const barcode=normStr(document.getElementById('pem-barcode').value);
+  const unit=normStr(document.getElementById('pem-unit').value)||'PCS';
+  const priceRaw=document.getElementById('pem-price').value;
+  const price=priceRaw===''||priceRaw==null?0:(Number(priceRaw)||0);
+  const salesPriceRaw=document.getElementById('pem-salesPrice').value;
+  const supplier=normStr(document.getElementById('pem-supplier').value);
+  const updated={...items[idx],barcode,name,unit,price,supplier};
+  // Sales price (optional)
+  if(salesPriceRaw===''||salesPriceRaw==null){delete updated.salesPrice}
+  else{const sp=Number(salesPriceRaw);if(Number.isFinite(sp))updated.salesPrice=sp}
+  // Extended dropdown fields + auto-learn new values
+  let newOptsAdded=0;
+  PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{
+    const v=normStr(document.getElementById('pem-'+k).value);
+    if(v){
+      updated[k]=v;
+      if(ensureFieldOption(k,v))newOptsAdded++;
+    }else{
+      delete updated[k];
+    }
+  });
+  // Created On
+  const coVal=document.getElementById('pem-createdOn').value;
+  if(coVal){updated.createdOn=fromLocalDatetimeInputValue(coVal)}
+  else if(!updated.createdOn){updated.createdOn=new Date().toISOString()}
+  items[idx]=normalizeItem(updated);
+  renderAll();
+  closeProductEditModal();
+  if(newOptsAdded>0)setTimeout(()=>alert('✅ Saved.\n🆕 '+newOptsAdded+' new dropdown value(s) auto-added.'),10);
+}
+// Close modal on backdrop click or Escape
+document.addEventListener('click',function(e){
+  const modal=document.getElementById('product-edit-modal');
+  if(modal&&modal.style.display==='flex'&&e.target===modal)closeProductEditModal();
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    const modal=document.getElementById('product-edit-modal');
+    if(modal&&modal.style.display==='flex')closeProductEditModal();
+  }
+});
+
+// =============== DOWNLOAD TEMPLATE ===============
+function downloadProductFieldsTemplate(){
+  if(!items.length)return alert('No products to generate template from. Add or import items first.');
+  const headers=['Product Code','Product Name','Barcode','UOM','Cost Price (KWD)','Sales Price (KWD)','Supplier ID','Department','Category','Sub Category','Brand','Division','Supplier Type','Category Managed','Delivery Method','Purchase Action','Trade Days','Created On (leave blank = auto)'];
+  const rows=[headers];
+  items.forEach(it=>{
+    rows.push([
+      it.code||'',
+      it.name||'',
+      it.barcode||'',
+      it.unit||'',
+      it.price!=null?Number(it.price).toFixed(3):'',
+      it.salesPrice!=null?Number(it.salesPrice).toFixed(3):'',
+      it.supplier||'',
+      it.department||'',
+      it.category||'',
+      it.subCategory||'',
+      it.brand||'',
+      it.division||'',
+      it.supplierType||'',
+      it.categoryManaged||'',
+      it.deliveryMethod||'',
+      it.purchaseAction||'',
+      it.tradeDays||'',
+      it.createdOn?formatDateTimeForDisplay(it.createdOn):''
+    ]);
+  });
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  // Column widths for readability
+  ws['!cols']=[{wch:14},{wch:40},{wch:16},{wch:10},{wch:12},{wch:12},{wch:10},{wch:14},{wch:14},{wch:18},{wch:14},{wch:14},{wch:14},{wch:18},{wch:24},{wch:14},{wch:12},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws,'Products');
+  // Reference sheet: dropdown options
+  const optRows=[['Field','Current Options (separated by |)']];
+  PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{
+    optRows.push([PRODUCT_EXT_META[k].label,getFieldOptions(k).join(' | ')]);
+  });
+  optRows.push(['','']);
+  optRows.push(['Tip:','Columns in sheet "Products" map to these fields. New values you type will be auto-added to dropdowns on import.']);
+  optRows.push(['Match rule:','Rows matched to existing items by Product Code (case-insensitive).']);
+  optRows.push(['Created On:','Leave blank to keep existing; accepts Excel date or "YYYY-MM-DD HH:MM" format.']);
+  const ws2=XLSX.utils.aoa_to_sheet(optRows);
+  ws2['!cols']=[{wch:20},{wch:80}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Dropdown Reference');
+  const stamp=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,'Product_Fields_Template_'+stamp+'.xlsx');
+}
+
+// =============== IMPORT EXTENDED FIELDS ===============
+function importProductFieldsXLSX(e){
+  const f=e.target.files[0];
+  if(!f)return;
+  showImportProgress();
+  setImportProgress(5,'Reading Excel file...');
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array',cellDates:false});
+      // Find the Products sheet — prefer it, else use first
+      let sheetName=wb.SheetNames.find(n=>String(n).toLowerCase()==='products')||wb.SheetNames[0];
+      const ws=wb.Sheets[sheetName];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      setImportProgress(20,'Matching rows to items...');
+      if(!rows.length){hideImportProgress();return alert('No rows found in sheet "'+sheetName+'"')}
+
+      const byCode=new Map();
+      items.forEach((it,idx)=>byCode.set(String(it.code).toLowerCase(),idx));
+
+      let updated=0,skipped=0,newOpts=0;
+      const skippedCodes=[];
+      const colMap={
+        'Product Code':'code','product code':'code','code':'code','Item Code':'code','item_code':'code','item code':'code',
+        'Product Name':'name','product name':'name','name':'name','item_name':'name',
+        'Barcode':'barcode','barcode':'barcode',
+        'UOM':'unit','uom':'unit','Unit':'unit','unit':'unit','Unit of Measure':'unit',
+        'Cost Price (KWD)':'price','Cost Price':'price','cost price':'price','Unit Price':'price','unit price':'price','price':'price','Unit Price (KWD)':'price',
+        'Sales Price (KWD)':'salesPrice','Sales Price':'salesPrice','sales price':'salesPrice','salesPrice':'salesPrice','RSP':'salesPrice',
+        'Supplier ID':'supplier','Supplier':'supplier','supplier':'supplier','supplier_id':'supplier',
+        'Department':'department','department':'department',
+        'Category':'category','category':'category',
+        'Sub Category':'subCategory','sub category':'subCategory','subcategory':'subCategory','Sub-Category':'subCategory',
+        'Brand':'brand','brand':'brand',
+        'Division':'division','division':'division',
+        'Supplier Type':'supplierType','supplier type':'supplierType',
+        'Category Managed':'categoryManaged','category managed':'categoryManaged',
+        'Delivery Method':'deliveryMethod','delivery method':'deliveryMethod',
+        'Purchase Action':'purchaseAction','purchase action':'purchaseAction',
+        'Trade Days':'tradeDays','trade days':'tradeDays',
+        'Created On':'createdOn','created on':'createdOn','createdOn':'createdOn','Created On (leave blank = auto)':'createdOn'
+      };
+      function getCell(row,targetKey){
+        for(const src of Object.keys(colMap)){
+          if(colMap[src]!==targetKey)continue;
+          if(row[src]!=null&&String(row[src]).trim()!=='')return String(row[src]).trim();
+        }
+        return '';
+      }
+
+      let processed=0;
+      rows.forEach(row=>{
+        processed++;
+        if(processed%200===0)setImportProgress(20+Math.round(processed*60/rows.length),'Processing row '+processed+'/'+rows.length);
+        const code=getCell(row,'code');
+        if(!code){skipped++;return}
+        const idx=byCode.get(String(code).toLowerCase());
+        if(idx==null){skipped++;skippedCodes.push(code);return}
+
+        const patch={...items[idx]};
+        // Simple string/numeric overrides
+        const barcode=getCell(row,'barcode');if(barcode)patch.barcode=barcode;
+        const name=getCell(row,'name');if(name)patch.name=name;
+        const unit=getCell(row,'unit');if(unit)patch.unit=unit;
+        const priceRaw=getCell(row,'price');if(priceRaw!==''){const p=Number(priceRaw);if(Number.isFinite(p))patch.price=p}
+        const spRaw=getCell(row,'salesPrice');if(spRaw!==''){const sp=Number(spRaw);if(Number.isFinite(sp))patch.salesPrice=sp}
+        const sup=getCell(row,'supplier');if(sup)patch.supplier=sup;
+
+        // Extended dropdown fields — auto-learn new values
+        PRODUCT_EXT_DROPDOWN_FIELDS.forEach(k=>{
+          const v=getCell(row,k);
+          if(v){
+            patch[k]=v;
+            if(ensureFieldOption(k,v))newOpts++;
+          }
+        });
+        // Created On
+        const coRaw=getCell(row,'createdOn');
+        if(coRaw){patch.createdOn=parseImportedDateTime(coRaw)}
+        else if(!patch.createdOn){patch.createdOn=new Date().toISOString()}
+
+        items[idx]=normalizeItem(patch);
+        updated++;
+      });
+
+      setImportProgress(90,'Saving & refreshing...');
+      rebuildFieldOptionsFromItems();
+      renderAll();
+      autoBackupMasterData('import_product_fields');
+      setImportProgress(100,'Import complete: '+updated+' updated, '+skipped+' skipped, '+newOpts+' new dropdown values');
+      hideImportProgress();
+      const preview=skippedCodes.slice(0,5).join(', ');
+      alert('✅ Import complete!\n\nUpdated: '+updated+'\nSkipped (code not found): '+skipped+(preview?' — e.g. '+preview:'')+'\nNew dropdown values auto-added: '+newOpts);
+    }catch(err){
+      hideImportProgress();
+      console.error(err);
+      alert('Import failed: '+(err&&err.message?err.message:err));
+    }
+  };
+  reader.readAsArrayBuffer(f);
+  e.target.value='';
+}
 
 // Create PO import/export
 function exportPODraft(){

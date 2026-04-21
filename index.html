@@ -3772,29 +3772,72 @@ function saveAllDataUniversal(){
   alert('All data saved to browser storage and full backup downloaded.');
 }
 
-function restoreAllDataUniversal(e){
+async function restoreAllDataUniversal(e){
   const file=e&&e.target&&e.target.files?e.target.files[0]:null;
   if(!file)return;
+  const clearInput=()=>{if(e&&e.target)e.target.value=''};
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
+    // Lock out polling / realtime overwrites while we restore & push
+    isApplyingRemoteState=true;
+    // Cancel any pending debounced writes from previous actions
+    if(cloudWriteTimer){clearTimeout(cloudWriteTimer);cloudWriteTimer=null}
     try{
       const parsed=JSON.parse(ev.target.result);
       const payload=parsed&&typeof parsed==='object'?parsed:{};
       const ok=applySharedStatePayload(payload);
       if(!ok)throw new Error('Invalid backup format');
-      saveData();
+      // Write to localStorage directly (don't call saveData — that would queue a debounced
+      // cloud save which can race with the direct push below)
+      try{
+        localStorage.setItem('po_suppliers2',JSON.stringify(suppliers));
+        localStorage.setItem('po_items2',JSON.stringify(items));
+        localStorage.setItem('po_history2',JSON.stringify(poHistory));
+        localStorage.setItem('po_reps2',JSON.stringify(reps));
+        localStorage.setItem('po_stock2',JSON.stringify(stockOnHand));
+        localStorage.setItem('po_locations2',JSON.stringify(locations));
+        localStorage.setItem('po_transfers2',JSON.stringify(transferHistory));
+        localStorage.setItem('po_pr_history2',JSON.stringify(prHistory));
+        localStorage.setItem('po_field_options2',JSON.stringify(fieldOptions));
+      }catch(lsErr){
+        console.warn('localStorage save failed (quota?) — continuing with Supabase only.',lsErr);
+      }
       renderAll();
-      alert('All data restored successfully from backup.');
+      // Direct, awaited push to cloud BEFORE we release the lock.
+      // This guarantees the next poll/realtime fetch sees our new state as "cloud state"
+      // and will NOT overwrite our restored arrays.
+      if(cloudSyncReady&&supaClient){
+        updateCloudSyncBanner('Uploading restored data to cloud...');
+        const freshPayload=buildSharedStatePayload();
+        const {error}=await supaClient.from(SUPABASE_TABLE).upsert(
+          {id:SUPABASE_ROW_ID,data:freshPayload,updated_at:new Date().toISOString()},
+          {onConflict:'id'}
+        );
+        if(error){
+          updateCloudSyncBanner('Restore cloud push failed: '+error.message);
+          alert('Data restored locally, but cloud upload FAILED:\n\n'+error.message+'\n\nData may be overwritten by other users. Try again or check your internet connection.');
+          return;
+        }
+        // Critical: sync lastCloudStateJSON so polling sees "no change" and won't overwrite
+        lastCloudStateJSON=JSON.stringify(freshPayload);
+        lastSyncTime=Date.now();
+        updateCloudSyncBanner();
+        alert('✓ All data restored and synced to cloud successfully.\n\nAll team members will see the updated data on their next sync.');
+      }else{
+        alert('Data restored locally. Cloud sync is not connected, so other users will NOT see these changes until sync reconnects.');
+      }
     }catch(err){
       console.error('Restore error:',err);
       alert('Restore failed: '+(err.message||'unknown error'));
     }finally{
-      if(e&&e.target)e.target.value='';
+      isApplyingRemoteState=false;
+      clearInput();
     }
   };
   reader.onerror=()=>{
+    isApplyingRemoteState=false;
     alert('Restore failed: could not read backup file.');
-    if(e&&e.target)e.target.value='';
+    clearInput();
   };
   reader.readAsText(file);
 }

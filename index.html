@@ -745,6 +745,9 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
   </div>
   <div class="sb-section-label">Inventory</div>
   <div class="sb-nav">
+    <div class="sb-nav-item" data-tab="locations" onclick="sidebarNav('locations')">
+      <span class="sb-dot"></span><span class="sb-icon">📍</span><span>Location Manager</span>
+    </div>
     <div class="sb-nav-item" data-tab="stock" onclick="sidebarNav('stock')">
       <span class="sb-dot"></span><span class="sb-icon">📊</span><span>Stock On Hand</span>
     </div>
@@ -814,6 +817,7 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
   <button type="button" onclick="switchTab('suppliers',this)">🏢 Supplier Details</button>
   <button type="button" onclick="switchTab('item-catalog',this)">🧾 Item Catalog Editor</button>
   <button onclick="switchTab('history',this)">📂 PO History</button>
+  <button type="button" onclick="switchTab('locations',this)">📍 Location Manager</button>
   <button onclick="switchTab('stock',this)">📊 Stock On Hand</button>
   <button type="button" id="tab-btn-transfer" onclick="switchTab('transfer',this)">🔄 Internal Transfer</button>
   <button type="button" id="tab-btn-transfer-history" onclick="switchTab('transfer-history',this)">📂 STO History</button>
@@ -921,6 +925,8 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
             <div class="master-actions-sep" role="separator"></div>
             <button type="button" class="master-actions-item" role="menuitem" onclick="closeMasterActionsMenu();downloadProductFieldsTemplate();">📋 Download extended fields template</button>
             <label class="master-actions-item master-actions-label" role="menuitem">📥 Import Fields Excel<input type="file" accept=".xlsx,.xls" onchange="importProductFieldsXLSX(event);closeMasterActionsMenu();"></label>
+            <div class="master-actions-sep" role="separator"></div>
+            <button type="button" class="master-actions-item" role="menuitem" onclick="closeMasterActionsMenu();openMasterExportModal();">📤 Export Products to Excel…</button>
             <div class="master-actions-sep" role="separator"></div>
             <button type="button" class="master-actions-item danger" role="menuitem" onclick="closeMasterActionsMenu();clearProductData();">🗑 Clear all products</button>
           </div>
@@ -1183,20 +1189,41 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
     </div>
   </div>
 </div>
-<div id="tab-stock" class="hidden-tab">
+<div id="tab-locations" class="hidden-tab">
   <div class="card">
     <div class="card-title">📍 Location Manager (<span id="loc-count">0</span>)</div>
+    <p class="hint" style="margin-bottom:10px">Add all your branches / warehouses / locations here. These locations are used in Create PO (shipping address), Stock On Hand filters, Internal Transfers, and Purchase Returns. Remove a location only if no stock or pending documents reference it.</p>
     <div class="grid2">
       <div><label class="lbl">Location Name</label><input class="fi" id="new-location-name" placeholder="e.g. Salmiya Branch, Kuwait"></div>
       <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="addLocation()">+ Add Location</button></div>
     </div>
-    <div class="mt12 hint">Locations added here are available directly in Create PO shipping address.</div>
-    <div class="scroll-box mt12" style="max-height:200px">
-      <table><thead><tr><th>Location</th><th></th></tr></thead><tbody id="loc-table"></tbody></table>
+    <div class="scroll-box mt12" style="max-height:60vh">
+      <table><thead><tr><th>Location</th><th style="width:80px;text-align:right">Action</th></tr></thead><tbody id="loc-table"></tbody></table>
     </div>
   </div>
+</div>
+<div id="tab-stock" class="hidden-tab">
   <div class="card">
-    <div class="card-title">📊 Stock On Hand (<span id="stock-count">0</span>)</div>
+    <div class="master-toolbar" style="padding:0;border:0;background:transparent">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;width:100%">
+        <div class="card-title" style="margin:0;flex:1;min-width:160px">📊 Stock On Hand (<span id="stock-count">0</span>)</div>
+        <div class="master-actions-wrap" onclick="event.stopPropagation()">
+          <button type="button" class="btn btn-light" id="stock-actions-toggle" onclick="toggleStockActionsMenu(event)" aria-expanded="false" aria-haspopup="true" aria-controls="stock-actions-menu" style="min-width:108px;font-weight:600">Actions ▾</button>
+          <div id="stock-actions-menu" class="master-actions-menu" role="menu" style="display:none">
+            <button type="button" class="master-actions-item" role="menuitem" onclick="closeStockActionsMenu();saveStockData();">💾 Save Stock Data</button>
+            <div class="master-actions-sep" role="separator"></div>
+            <label class="master-actions-item master-actions-label" role="menuitem">📥 Import Stock (Excel)<input type="file" accept=".xlsx,.xls" onchange="importStockXLSX(event);closeStockActionsMenu();"></label>
+            <button type="button" class="master-actions-item" role="menuitem" onclick="closeStockActionsMenu();downloadStockTemplate();">📄 Download Stock Import Template</button>
+            <div class="master-actions-sep" role="separator"></div>
+            <button type="button" class="master-actions-item" role="menuitem" onclick="closeStockActionsMenu();exportStockExcel();">📤 Export Selected Location</button>
+            <button type="button" class="master-actions-item" role="menuitem" onclick="closeStockActionsMenu();exportAllStockExcel();">📤 Export All Stock</button>
+            <div class="master-actions-sep" role="separator"></div>
+            <button type="button" class="master-actions-item danger" role="menuitem" onclick="closeStockActionsMenu();if(confirm('Clear all stock on hand data?')){stockOnHand={};saveData();renderAll()}">🗑 Clear Stock</button>
+          </div>
+        </div>
+      </div>
+      <p class="master-toolbar-hint hint">Quantities are always <strong>pieces (PCS)</strong>. PO receipts and transfers multiply line qty by pack size in UOM. Pick "All locations" to see every branch. Search filters by code, barcode, and name. <strong>Import / Export / Save</strong> are under <strong>Actions</strong>.</p>
+    </div>
     <div class="grid2 mt12">
       <div>
         <label class="lbl">Show stock for location</label>
@@ -1208,18 +1235,12 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
         <div class="dropdown" id="stock-search-dropdown" style="display:none"></div>
       </div>
     </div>
-    <div class="mt12 hint">Quantities are always <strong>pieces (PCS)</strong> (PO receipts and transfers multiply line qty by the pack size in UOM). The table lists only the location chosen above (pick &quot;All locations&quot; for every branch). Search filters by code, barcode (from master), and name. Export uses the dropdown in the row below.</div>
-    <div class="mt12 flex-gap">
-      <label class="btn btn-light" style="cursor:pointer">📥 Import Stock Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importStockXLSX(event)"></label>
-      <button class="btn btn-light" onclick="downloadStockTemplate()">📄 Download Stock Import Template</button>
-      <button class="btn btn-light" onclick="saveStockData()">💾 Save Stock Data</button>
-      <select class="fi" id="stock-export-location" style="max-width:320px"></select>
-      <button class="btn btn-light" onclick="exportStockExcel()">📤 Export Selected Location</button>
-      <button class="btn btn-light" onclick="exportAllStockExcel()">📤 Export All Stock</button>
-      <button class="btn-danger" style="margin-left:auto" onclick="if(confirm('Clear all stock on hand data?')){stockOnHand={};saveData();renderAll()}">🗑 Clear Stock</button>
+    <div class="mt12">
+      <label class="lbl" style="font-size:11px">Export scope (used by Export Selected Location in Actions)</label>
+      <select class="fi" id="stock-export-location" style="max-width:400px"></select>
     </div>
-    <div class="mt12 hint">Excel format: location/branch | code/product code | name/product name (optional) | qty/quantity/stock/on_hand</div>
-    <div class="scroll-box mt12">
+    <div class="mt12 hint">Excel format for import: <strong>location / branch · code / product code · name / product name (optional) · qty / quantity / stock / on_hand</strong></div>
+    <div class="scroll-box mt12" style="max-height:70vh">
       <table>
         <thead><tr><th>Location</th><th>Barcode</th><th>Code</th><th>Product Name</th><th>Qty (PCS)</th></tr></thead>
         <tbody id="stock-table"></tbody>
@@ -1349,7 +1370,12 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
     <div class="card-title">🔁 Create Purchase Return (RMA)</div>
     <div class="grid3">
       <div><label class="lbl">RMA Number</label><input class="fi mono" id="pr-number" readonly></div>
-      <div><label class="lbl">Supplier</label><select class="fi" id="pr-supplier" onchange="onPRSupplierChange()"><option value="">-- Select --</option></select></div>
+      <div>
+        <label class="lbl">Supplier *</label>
+        <select class="fi" id="pr-supplier" onchange="onPRSupplierChange()"><option value="">-- Select --</option></select>
+        <input class="fi mt12" id="pr-supplier-lookup" list="pr-supplier-list" placeholder="Type supplier ID or name..." oninput="onPRSupplierLookupInput()">
+        <datalist id="pr-supplier-list"></datalist>
+      </div>
       <div><label class="lbl">Return Reason</label><select class="fi" id="pr-reason"><option>Expired</option><option>Damaged</option><option>Defective</option><option>Overstock</option><option>Low Performing</option><option>Other</option></select></div>
     </div>
     <div class="grid3 mt12">
@@ -1429,9 +1455,38 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
     <div class="mt12">
       <button class="btn btn-light" onclick="resetPRHistoryFilters()">Reset Filters</button>
     </div>
+    <div class="grid3 mt12">
+      <div>
+        <label class="lbl">Export Date From</label>
+        <input class="fi" type="date" id="pr-hist-export-date-from">
+      </div>
+      <div>
+        <label class="lbl">Export Date To</label>
+        <input class="fi" type="date" id="pr-hist-export-date-to">
+      </div>
+      <div>
+        <label class="lbl">Export Supplier</label>
+        <select class="fi" id="pr-hist-export-supplier">
+          <option value="">All suppliers</option>
+        </select>
+      </div>
+    </div>
+    <div class="mt12 flex-gap">
+      <div class="actions-wrap">
+        <button type="button" class="actions-btn" onclick="toggleActionsMenu('pr-hist-actions',event)">Actions <span class="am-caret">▼</span></button>
+        <div id="pr-hist-actions" class="actions-menu">
+          <button type="button" class="am-item" onclick="exportAllPRHistory();closeActionsMenus()">📤 Export All PRs (Excel)</button>
+          <button type="button" class="am-item" onclick="exportSelectedPRHistory();closeActionsMenus()">📤 Export Selected PRs (Excel)</button>
+          <div class="am-sep"></div>
+          <button type="button" class="am-item" onclick="exportPRHistoryByDate();closeActionsMenus()">📤 Export Date-wise (Excel)</button>
+          <button type="button" class="am-item" onclick="exportPRHistoryBySupplier();closeActionsMenus()">📤 Export Supplier-wise (Excel)</button>
+          <div class="am-hint">Use checkboxes in table for manual selection</div>
+        </div>
+      </div>
+    </div>
     <div id="pr-hist-empty" class="empty">No purchase returns created yet</div>
     <div id="pr-hist-area" style="display:none">
-      <table><thead><tr><th>RMA#</th><th>Supplier</th><th>Reason</th><th>Status</th><th>Date</th><th>Items</th><th>Total</th><th style="width:24px"></th></tr></thead><tbody id="pr-hist-table"></tbody></table>
+      <table><thead><tr><th><input type="checkbox" id="pr-hist-select-all" onchange="toggleSelectAllVisiblePRs(this.checked)"></th><th>RMA#</th><th>Supplier</th><th>Reason</th><th>Status</th><th>Date</th><th>Items</th><th>Total</th><th style="width:24px"></th></tr></thead><tbody id="pr-hist-table"></tbody></table>
       <div class="mt12" style="text-align:right"><button class="btn btn-primary" style="margin-right:8px" onclick="savePRHistoryToCloud()">💾 Save PR History</button><button class="btn-danger" onclick="if(confirm('Clear all PR history?')){prHistory=[];saveData();renderAll()}">Clear PR History</button></div>
     </div>
   </div>
@@ -1526,6 +1581,67 @@ tbody tr.row-clickable td .row-action-btns{display:flex;gap:4px;flex-wrap:wrap}
 </div>
 
 <!-- Modal popups removed — replaced with inline full-page detail views inside each history tab -->
+
+<!-- Master Data Export Modal (item + field selection) -->
+<div id="master-export-modal" class="modal-backdrop" style="display:none">
+  <div class="modal-box" style="max-width:1080px">
+    <div class="modal-header">
+      <h3>📤 Export Products to Excel</h3>
+      <button class="modal-close" onclick="closeMasterExportModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint" style="margin-bottom:12px">Pick which products to export (all or only selected rows) and which columns (fields) to include. Output is a single <code>.xlsx</code> file with one row per product and one column per selected field.</p>
+
+      <div class="section-label">1. Scope</div>
+      <div class="flex-gap" style="gap:18px;flex-wrap:wrap">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="radio" name="mex-scope" value="all" checked onchange="onMasterExportScopeChange()"> All products
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="radio" name="mex-scope" value="filtered" onchange="onMasterExportScopeChange()"> Only products matching the search below
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="radio" name="mex-scope" value="selected" onchange="onMasterExportScopeChange()"> Only rows I tick below
+        </label>
+      </div>
+
+      <div class="mt12">
+        <label class="lbl">Search / filter products (code, barcode, name, supplier, brand, category…)</label>
+        <input class="fi" id="mex-filter" placeholder="Type to filter the table below…" oninput="onMasterExportFilterInput()">
+      </div>
+
+      <div class="flex-gap mt12" style="gap:10px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="btn btn-light" onclick="masterExportSelectVisible(true)">☑ Select visible</button>
+        <button type="button" class="btn btn-light" onclick="masterExportSelectVisible(false)">☐ Deselect visible</button>
+        <button type="button" class="btn btn-light" onclick="masterExportSelectAll(true)">☑ Select all products</button>
+        <button type="button" class="btn btn-light" onclick="masterExportSelectAll(false)">☐ Clear selection</button>
+        <span class="hint" id="mex-sel-count">0 products selected</span>
+      </div>
+
+      <div class="scroll-box mt12" style="max-height:260px">
+        <table>
+          <thead><tr>
+            <th style="width:30px"><input type="checkbox" id="mex-header-check" onchange="masterExportSelectVisible(this.checked)"></th>
+            <th>Barcode</th><th>Code</th><th>Name</th><th>Supplier</th><th>Brand</th><th>Category</th>
+          </tr></thead>
+          <tbody id="mex-item-table"></tbody>
+        </table>
+      </div>
+
+      <div class="section-label mt20">2. Fields / Columns to include</div>
+      <div class="flex-gap" style="gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <button type="button" class="btn btn-light" onclick="masterExportSelectAllFields(true)">☑ All fields</button>
+        <button type="button" class="btn btn-light" onclick="masterExportSelectAllFields(false)">☐ None</button>
+        <button type="button" class="btn btn-light" onclick="masterExportSelectDefaultFields()">↺ Default (basic)</button>
+      </div>
+      <div id="mex-fields-grid" class="grid3" style="font-size:13px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-light" onclick="closeMasterExportModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="doMasterExport()">📤 Export Excel</button>
+    </div>
+  </div>
+</div>
 
 
 
@@ -2106,15 +2222,21 @@ function applySharedStatePayload(payload, opts){
   const nextItems=Array.isArray(payload.items)?payload.items:[];
   const nextHist=Array.isArray(payload.poHistory)?payload.poHistory:[];
   const nextReps=Array.isArray(payload.reps)?payload.reps:[];
-  const hadLocalStock=stockOnHand&&typeof stockOnHand==='object'&&Object.keys(stockOnHand).length>0;
+  const stockBase=(stockOnHand&&typeof stockOnHand==='object'&&!Array.isArray(stockOnHand))?stockOnHand:{};
   let nextStock;
-  if(payload.stockOnHand!==undefined&&payload.stockOnHand!==null&&typeof payload.stockOnHand==='object'){
-    nextStock=payload.stockOnHand;
+  if(opts.fromCloudSync){
+    const incoming=payload.stockOnHand;
+    if(incoming!==undefined&&incoming!==null&&typeof incoming==='object'&&!Array.isArray(incoming)){
+      nextStock={...stockBase,...incoming};
+    }else{
+      nextStock=stockBase;
+    }
   }else{
-    nextStock=stockOnHand;
-  }
-  if(opts.fromCloudSync&&hadLocalStock&&nextStock&&typeof nextStock==='object'&&Object.keys(nextStock).length===0){
-    nextStock={...stockOnHand};
+    if(payload.stockOnHand!==undefined&&payload.stockOnHand!==null&&typeof payload.stockOnHand==='object'&&!Array.isArray(payload.stockOnHand)){
+      nextStock=payload.stockOnHand;
+    }else{
+      nextStock=stockOnHand;
+    }
   }
   const nextLoc=Array.isArray(payload.locations)&&payload.locations.length?payload.locations:[...ADDRESSES];
   const nextTransfers=Array.isArray(payload.transferHistory)?payload.transferHistory:[];
@@ -2173,6 +2295,7 @@ async function fetchCloudState(){
         lastCloudStateJSON=json;
         lastSyncTime=Date.now();
         updateCloudSyncBanner();
+        setTimeout(function(){queueCloudSyncSave()},0);
         return true;
       }
     }finally{isApplyingRemoteState=false}
@@ -2183,12 +2306,6 @@ async function fetchCloudState(){
 }
 async function initCloudSync(){
   if(!CLOUD_SYNC_ENABLED){updateCloudSyncBanner();return}
-async function manualCloudRefresh(){
-  if(!cloudSyncReady||!supaClient){alert('Cloud sync not ready.');return}
-  updateCloudSyncBanner('Refreshing...');
-  const ok=await fetchCloudState();
-  if(!ok){queueCloudSyncSave();updateCloudSyncBanner()}
-}
   if(typeof supabase==='undefined'){
     console.warn('Supabase SDK not loaded. Running local-only mode.');
     updateCloudSyncBanner('Supabase SDK not loaded');
@@ -2216,6 +2333,7 @@ async function manualCloudRefresh(){
             lastCloudStateJSON=json;
             lastSyncTime=Date.now();
             updateCloudSyncBanner();
+            setTimeout(function(){queueCloudSyncSave()},0);
           }
         }finally{isApplyingRemoteState=false}
       })
@@ -2233,6 +2351,12 @@ async function manualCloudRefresh(){
     console.warn('Cloud sync init failed:',msg);
     updateCloudSyncBanner('Init failed: '+msg);
   }
+}
+async function manualCloudRefresh(){
+  if(!cloudSyncReady||!supaClient){alert('Cloud sync not ready.');return}
+  updateCloudSyncBanner('Refreshing...');
+  const ok=await fetchCloudState();
+  if(!ok){queueCloudSyncSave();updateCloudSyncBanner()}
 }
 function saveData(){
   try{
@@ -2317,6 +2441,7 @@ var TAB_META={
   'suppliers':{title:'Supplier Details',sub:'Manage suppliers for procurement'},
   'item-catalog':{title:'Item Catalog Editor',sub:'Edit individual item details'},
   'history':{title:'PO History',sub:'View and manage purchase order history'},
+  'locations':{title:'Location Manager',sub:'Add and manage branches / warehouses / locations'},
   'stock':{title:'Stock On Hand',sub:'Current inventory across all locations'},
   'transfer':{title:'Internal Transfer',sub:'Create stock transfer orders between branches'},
   'transfer-history':{title:'STO History',sub:'View and manage stock transfer history'},
@@ -5051,6 +5176,463 @@ function generatePRPDF(pd){
   for(let p=1;p<=pc;p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(100,100,100);doc.text('https://www.canteenkw.com',M,287);doc.text('Canteen Grocery & More',W/2,287,{align:'center'});doc.setFillColor(...GR);doc.rect(W-M-8,283,8,8,'F');doc.setTextColor(255,255,255);doc.setFontSize(9);doc.text(String(p),W-M-4,289,{align:'center'})}
   doc.save('PR_'+pd.rmaNumber+'_'+(pd.supplierName||'').replace(/[^a-zA-Z0-9]/g,'_')+'.pdf');
 }
+
+// ==================================================================
+// ========= NEW FEATURES BLOCK (added by update) ===================
+// Stock Actions dropdown, PR smart-search, PR history actions,
+// Master Data export modal. Declared here so they are on the global
+// scope and available to onclick= handlers in the HTML above.
+// ==================================================================
+
+// ── Stock tab Actions dropdown ───────────────────────────────────
+function closeStockActionsMenu(){
+  var m=document.getElementById('stock-actions-menu');
+  var b=document.getElementById('stock-actions-toggle');
+  if(m)m.style.display='none';
+  if(b)b.setAttribute('aria-expanded','false');
+}
+function toggleStockActionsMenu(e){
+  if(e)e.stopPropagation();
+  var m=document.getElementById('stock-actions-menu');
+  var b=document.getElementById('stock-actions-toggle');
+  if(!m)return;
+  var isOpen=m.style.display==='block';
+  m.style.display=isOpen?'none':'block';
+  if(b)b.setAttribute('aria-expanded',isOpen?'false':'true');
+}
+// Close stock actions menu on outside click
+document.addEventListener('click',function(e){
+  var wrap=document.querySelector('#stock-actions-menu');
+  var btn=document.getElementById('stock-actions-toggle');
+  if(!wrap||wrap.style.display!=='block')return;
+  if(btn&&btn.contains(e.target))return;
+  if(wrap.contains(e.target))return;
+  closeStockActionsMenu();
+});
+
+// ── PR Supplier smart search (mirrors PO supplier lookup) ────────
+function syncPRSupplierLookupFromSelection(){
+  var lookup=document.getElementById('pr-supplier-lookup');
+  if(!lookup)return;
+  var sel=document.getElementById('pr-supplier');
+  if(!sel){lookup.value='';return}
+  var v=sel.value;
+  if(!v){lookup.value='';return}
+  var sup=suppliers.find(function(s){return String(s.id)===String(v)});
+  lookup.value=sup?(sup.id+' - '+sup.name):String(v);
+}
+function onPRSupplierLookupInput(){
+  var lookup=document.getElementById('pr-supplier-lookup');
+  var select=document.getElementById('pr-supplier');
+  if(!lookup||!select)return;
+  var raw=String(lookup.value||'').trim();
+  if(!raw){
+    if(select.value){select.value='';onPRSupplierChange()}
+    return;
+  }
+  var q=raw.toLowerCase();
+  var match=suppliers.find(function(s){
+    var id=String(s.id||'').toLowerCase();
+    var name=String(s.name||'').toLowerCase();
+    return id===q||name===q||(id+' - '+name)===q;
+  });
+  if(!match){
+    var starts=suppliers.filter(function(s){return String(s.id||'').toLowerCase().startsWith(q)});
+    if(starts.length===1)match=starts[0];
+  }
+  if(match&&select.value!==match.id){
+    select.value=match.id;
+    onPRSupplierChange();
+  }
+}
+
+// ── Hook: extend renderPRForm so the datalist stays populated and
+// the supplier lookup input mirrors the selected supplier. We wrap
+// the original renderPRForm (defined earlier in the file) so that
+// every existing call (including from renderAll) picks these up.
+(function(){
+  var _origRenderPRForm=(typeof renderPRForm==='function')?renderPRForm:null;
+  window.renderPRForm=function(){
+    if(_origRenderPRForm)_origRenderPRForm.apply(this,arguments);
+    var list=document.getElementById('pr-supplier-list');
+    if(list){
+      list.innerHTML=suppliers.map(function(s){
+        return '<option value="'+escAttr(s.id+' - '+s.name)+'"></option>';
+      }).join('');
+    }
+    syncPRSupplierLookupFromSelection();
+  };
+})();
+
+// ── PR History: checkbox selection state ─────────────────────────
+var prHistVisibleIndexes=[];
+var prHistSelectedMap={};
+function setPRSelected(i,checked){prHistSelectedMap[i]=!!checked}
+function toggleSelectAllVisiblePRs(checked){
+  prHistVisibleIndexes.forEach(function(i){prHistSelectedMap[i]=!!checked});
+  renderPRHistory();
+}
+
+// Hook: wrap renderPRHistory so we add a checkbox column per row +
+// maintain prHistVisibleIndexes / select-all state.
+(function(){
+  var _origRenderPRHistory=(typeof renderPRHistory==='function')?renderPRHistory:null;
+  window.renderPRHistory=function(){
+    if(_origRenderPRHistory)_origRenderPRHistory.apply(this,arguments);
+    var table=document.getElementById('pr-hist-table');
+    if(!table)return;
+    // Update visible indexes by re-running the filter (cheap, same lists)
+    var q=String((document.getElementById('pr-hist-search')||{value:''}).value||'').trim().toLowerCase();
+    var sf=String((document.getElementById('pr-hist-status-filter')||{value:''}).value||'').trim().toLowerCase();
+    var dateFilter=String((document.getElementById('pr-hist-date-filter')||{value:''}).value||'').trim();
+    prHistVisibleIndexes=prHistory.map(function(pr,i){return{pr:pr,i:i}}).filter(function(rec){
+      var pr=rec.pr;
+      var status=((pr.status||'Draft')==='Confirmed'?'confirmed':'draft');
+      if(sf&&status!==sf)return false;
+      var dateIso=String(pr.returnDate||'').slice(0,10);
+      var dateLocal=pr.date?new Date(pr.date).toLocaleDateString():'';
+      if(dateFilter&&dateIso!==dateFilter&&dateLocal!==dateFilter)return false;
+      if(!q)return true;
+      var txt=[pr.rmaNumber||'',pr.supplierId||'',pr.supplierName||'',normStr(pr.vendorReference),pr.reason||'',status,pr.returnDate||'',dateLocal,pr.purchaseRep||'',pr.returnFrom||''].join(' ').toLowerCase();
+      return txt.indexOf(q)!==-1;
+    }).map(function(rec){return rec.i});
+
+    // Now rewrite table rows to prepend a checkbox column
+    var rows=Array.prototype.slice.call(table.querySelectorAll('tr'));
+    rows.forEach(function(row,rowIdx){
+      // Each row already has onclick="viewPRDetails(NNN)" — extract NNN
+      var handler=row.getAttribute('onclick')||'';
+      var m=handler.match(/viewPRDetails\((\d+)\)/);
+      if(!m)return;
+      var i=Number(m[1]);
+      var td=document.createElement('td');
+      td.setAttribute('onclick','event.stopPropagation()');
+      td.innerHTML='<input type="checkbox" '+(prHistSelectedMap[i]?'checked':'')+' onchange="setPRSelected('+i+',this.checked)">';
+      row.insertBefore(td,row.firstChild);
+    });
+
+    // Sync select-all header
+    var selAll=document.getElementById('pr-hist-select-all');
+    if(selAll){
+      var allSelected=prHistVisibleIndexes.length>0&&prHistVisibleIndexes.every(function(i){return !!prHistSelectedMap[i]});
+      selAll.checked=allSelected;
+    }
+  };
+})();
+
+// ── PR History export helpers ────────────────────────────────────
+function prDateISO(pr){
+  if(pr&&pr.returnDate)return String(pr.returnDate).slice(0,10);
+  if(pr&&pr.date){
+    var d=new Date(pr.date);
+    if(!isNaN(d.getTime()))return d.toISOString().slice(0,10);
+  }
+  return '';
+}
+function buildPRExportRows(list){
+  var prs=(Array.isArray(list)?list:[]);
+  var summaryRows=prs.map(function(pr){
+    return{
+      rma_number:pr.rmaNumber||'',
+      supplier_id:pr.supplierId||'',
+      supplier_name:pr.supplierName||'',
+      status:pr.status||'Draft',
+      reason:pr.reason||'',
+      return_date:pr.returnDate||'',
+      pr_date:prDateISO(pr),
+      confirmed_on:pr.confirmedOn?String(pr.confirmedOn).slice(0,10):'',
+      purchase_rep:pr.purchaseRep||'',
+      return_from:pr.returnFrom||'',
+      vendor_reference:normStr(pr.vendorReference),
+      items_count:Array.isArray(pr.items)?pr.items.length:0,
+      total_kwd:normNum(pr.totalAmt).toFixed(3)
+    };
+  });
+  var lineRows=[];
+  prs.forEach(function(pr){
+    (Array.isArray(pr.items)?pr.items:[]).forEach(function(it,idx){
+      var qty=normNum(it.qty),price=normNum(it.price),disc=Math.min(100,Math.max(0,Number(it.discount)||0));
+      lineRows.push({
+        rma_number:pr.rmaNumber||'',
+        supplier_id:pr.supplierId||'',
+        supplier_name:pr.supplierName||'',
+        status:pr.status||'Draft',
+        reason:pr.reason||'',
+        return_date:pr.returnDate||'',
+        pr_date:prDateISO(pr),
+        line_no:idx+1,
+        barcode:normStr(it.barcode),
+        code:normStr(it.code),
+        name:normStr(it.name),
+        qty:qty.toFixed(2),
+        unit:normStr(it.unit)||'PCS',
+        unit_price:price.toFixed(3),
+        discount_pct:disc.toFixed(1),
+        amount:lineAmount(it).toFixed(3)
+      });
+    });
+  });
+  return{summaryRows:summaryRows,lineRows:lineRows};
+}
+function exportPRHistoryExcel(list,fileName){
+  if(!Array.isArray(list)||!list.length)return alert('No PR records to export.');
+  var rows=buildPRExportRows(list);
+  var wb=XLSX.utils.book_new();
+  var wsSummary=XLSX.utils.json_to_sheet(rows.summaryRows);
+  var wsLines=XLSX.utils.json_to_sheet(rows.lineRows.length?rows.lineRows:[{note:'No line items'}]);
+  XLSX.utils.book_append_sheet(wb,wsSummary,'PR_Summary');
+  XLSX.utils.book_append_sheet(wb,wsLines,'PR_Line_Details');
+  XLSX.writeFile(wb,fileName||'PR_History.xlsx');
+}
+function exportAllPRHistory(){exportPRHistoryExcel([].concat(prHistory),'PR_History_All.xlsx')}
+function exportSelectedPRHistory(){
+  var selected=Object.keys(prHistSelectedMap).filter(function(k){return prHistSelectedMap[k]}).map(function(k){return prHistory[Number(k)]}).filter(Boolean);
+  if(!selected.length)return alert('No PRs selected. Tick checkboxes in the PR table first.');
+  exportPRHistoryExcel(selected,'PR_History_Selected.xlsx');
+}
+function exportPRHistoryByDate(){
+  var from=String((document.getElementById('pr-hist-export-date-from')||{value:''}).value||'').trim();
+  var to=String((document.getElementById('pr-hist-export-date-to')||{value:''}).value||'').trim();
+  if(!from&&!to)return alert('Please choose an Export Date From / To range first.');
+  var filtered=prHistory.filter(function(pr){
+    var d=prDateISO(pr);
+    if(!d)return false;
+    if(from&&d<from)return false;
+    if(to&&d>to)return false;
+    return true;
+  });
+  exportPRHistoryExcel(filtered,'PR_History_Date_Wise.xlsx');
+}
+function exportPRHistoryBySupplier(){
+  var sup=String((document.getElementById('pr-hist-export-supplier')||{value:''}).value||'').trim();
+  if(!sup)return alert('Please select a supplier in Export Supplier first.');
+  var filtered=prHistory.filter(function(pr){return String(pr.supplierId||'').trim()===sup});
+  exportPRHistoryExcel(filtered,'PR_History_Supplier_'+sup+'.xlsx');
+}
+
+// Hook renderAll so pr-hist-export-supplier dropdown gets populated
+(function(){
+  var _origRenderAll=(typeof renderAll==='function')?renderAll:null;
+  window.renderAll=function(){
+    if(_origRenderAll)_origRenderAll.apply(this,arguments);
+    var prSup=document.getElementById('pr-hist-export-supplier');
+    if(prSup){
+      var cur=prSup.value;
+      prSup.innerHTML='<option value="">All suppliers</option>'+suppliers.map(function(s){return '<option value="'+escAttr(s.id)+'">'+escHtml(s.id+' - '+s.name)+'</option>'}).join('');
+      if(cur)prSup.value=cur;
+    }
+    // Also keep PR supplier datalist fresh (in case renderPRForm wasn't called elsewhere)
+    var list=document.getElementById('pr-supplier-list');
+    if(list){
+      list.innerHTML=suppliers.map(function(s){return '<option value="'+escAttr(s.id+' - '+s.name)+'"></option>'}).join('');
+    }
+    syncPRSupplierLookupFromSelection();
+  };
+})();
+
+// ==================================================================
+// ────────── Master Data export modal (item + field selection) ────
+// ==================================================================
+var MASTER_EXPORT_FIELDS=[
+  {key:'barcode',       label:'Barcode',                default:true },
+  {key:'code',          label:'Code',                   default:true },
+  {key:'name',          label:'Name',                   default:true },
+  {key:'unit',          label:'UOM',                    default:true },
+  {key:'price',         label:'Cost Price (KWD)',       default:true },
+  {key:'salesPrice',    label:'Sales Price / RSP (KWD)',default:true },
+  {key:'supplier',      label:'Supplier (ID)',          default:true },
+  {key:'supplierName',  label:'Supplier Name',          default:true },
+  {key:'department',    label:'Department',             default:false},
+  {key:'category',      label:'Category',               default:false},
+  {key:'subCategory',   label:'Sub Category',           default:false},
+  {key:'brand',         label:'Brand',                  default:false},
+  {key:'division',      label:'Division / Movement',    default:false},
+  {key:'supplierType',  label:'Supplier Type',          default:false},
+  {key:'categoryManaged',label:'Category Managed',      default:false},
+  {key:'deliveryMethod',label:'Delivery Method',        default:false},
+  {key:'purchaseAction',label:'Purchase Action',        default:false},
+  {key:'tradeDays',     label:'Trade Days',             default:false},
+  {key:'createdOn',     label:'Created On',             default:false},
+  {key:'altBarcodes',   label:'Alt Barcodes (joined)',  default:false},
+  {key:'supplierOffers',label:'Supplier Offers (joined)',default:false}
+];
+var masterExportSelected={};   // code -> true
+var masterExportScope='all';   // 'all' | 'filtered' | 'selected'
+
+function masterExportSupplierIdToName(id){
+  var s=suppliers.find(function(x){return String(x.id)===String(id)});
+  return s?s.name:'';
+}
+function masterExportFilteredItems(){
+  var q=String((document.getElementById('mex-filter')||{value:''}).value||'').trim().toLowerCase();
+  if(!q)return items.slice();
+  return items.filter(function(it){return itemFlatSearchString(it).indexOf(q)!==-1});
+}
+function openMasterExportModal(){
+  masterExportSelected={};
+  masterExportScope='all';
+  var modal=document.getElementById('master-export-modal');
+  if(!modal)return;
+  var f=document.getElementById('mex-filter');if(f)f.value='';
+  // Default scope radio
+  var rAll=document.querySelector('input[name="mex-scope"][value="all"]');
+  if(rAll)rAll.checked=true;
+  // Render fields grid
+  var grid=document.getElementById('mex-fields-grid');
+  if(grid){
+    grid.innerHTML=MASTER_EXPORT_FIELDS.map(function(fd){
+      return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 0"><input type="checkbox" data-mex-field="'+fd.key+'" '+(fd.default?'checked':'')+'> <span>'+escHtml(fd.label)+'</span></label>';
+    }).join('');
+  }
+  renderMasterExportTable();
+  updateMasterExportSelCount();
+  modal.style.display='flex';
+}
+function closeMasterExportModal(){
+  var modal=document.getElementById('master-export-modal');
+  if(modal)modal.style.display='none';
+}
+function onMasterExportScopeChange(){
+  var r=document.querySelector('input[name="mex-scope"]:checked');
+  masterExportScope=r?r.value:'all';
+}
+function onMasterExportFilterInput(){renderMasterExportTable()}
+function renderMasterExportTable(){
+  var tbody=document.getElementById('mex-item-table');
+  if(!tbody)return;
+  var filtered=masterExportFilteredItems().slice(0,300); // cap to 300 rows for performance
+  tbody.innerHTML=filtered.map(function(it){
+    var checked=masterExportSelected[it.code]?'checked':'';
+    var supName=masterExportSupplierIdToName(it.supplier);
+    return '<tr>'+
+      '<td><input type="checkbox" '+checked+' data-mex-item="'+escAttr(it.code)+'" onchange="onMasterExportItemToggle(\''+escAttr(it.code)+'\',this.checked)"></td>'+
+      '<td class="mono" style="font-size:11px">'+escHtml(it.barcode||'—')+'</td>'+
+      '<td class="fw">'+escHtml(it.code||'')+'</td>'+
+      '<td style="font-size:12px">'+escHtml(it.name||'')+'</td>'+
+      '<td style="font-size:11px">'+escHtml(supName||it.supplier||'—')+'</td>'+
+      '<td style="font-size:11px">'+escHtml(it.brand||'—')+'</td>'+
+      '<td style="font-size:11px">'+escHtml(it.category||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+  var totalFiltered=masterExportFilteredItems().length;
+  if(totalFiltered>filtered.length){
+    tbody.innerHTML+='<tr><td colspan="7" class="hint" style="text-align:center;font-style:italic">Showing first '+filtered.length+' of '+totalFiltered+' — refine the search above to see more.</td></tr>';
+  }
+  // Update header checkbox
+  var hc=document.getElementById('mex-header-check');
+  if(hc){
+    var allVisSel=filtered.length>0&&filtered.every(function(it){return !!masterExportSelected[it.code]});
+    hc.checked=allVisSel;
+  }
+}
+function onMasterExportItemToggle(code,checked){
+  if(checked)masterExportSelected[code]=true;
+  else delete masterExportSelected[code];
+  updateMasterExportSelCount();
+  var hc=document.getElementById('mex-header-check');
+  if(hc){
+    var visible=masterExportFilteredItems().slice(0,300);
+    hc.checked=visible.length>0&&visible.every(function(it){return !!masterExportSelected[it.code]});
+  }
+}
+function masterExportSelectVisible(checked){
+  var visible=masterExportFilteredItems().slice(0,300);
+  visible.forEach(function(it){
+    if(checked)masterExportSelected[it.code]=true;
+    else delete masterExportSelected[it.code];
+  });
+  renderMasterExportTable();
+  updateMasterExportSelCount();
+}
+function masterExportSelectAll(checked){
+  if(!checked){masterExportSelected={};}
+  else{items.forEach(function(it){masterExportSelected[it.code]=true})}
+  renderMasterExportTable();
+  updateMasterExportSelCount();
+}
+function updateMasterExportSelCount(){
+  var el=document.getElementById('mex-sel-count');
+  if(!el)return;
+  var n=Object.keys(masterExportSelected).length;
+  el.textContent=n+' product'+(n===1?'':'s')+' selected';
+}
+function masterExportSelectAllFields(checked){
+  document.querySelectorAll('#mex-fields-grid input[type="checkbox"][data-mex-field]').forEach(function(cb){cb.checked=!!checked});
+}
+function masterExportSelectDefaultFields(){
+  document.querySelectorAll('#mex-fields-grid input[type="checkbox"][data-mex-field]').forEach(function(cb){
+    var k=cb.getAttribute('data-mex-field');
+    var fd=MASTER_EXPORT_FIELDS.find(function(f){return f.key===k});
+    cb.checked=!!(fd&&fd.default);
+  });
+}
+function doMasterExport(){
+  // 1. Decide which items to export
+  var chosenItems;
+  if(masterExportScope==='all'){
+    chosenItems=items.slice();
+  }else if(masterExportScope==='filtered'){
+    chosenItems=masterExportFilteredItems();
+    if(!chosenItems.length)return alert('No products match the current filter.');
+  }else{
+    chosenItems=items.filter(function(it){return !!masterExportSelected[it.code]});
+    if(!chosenItems.length)return alert('No products selected. Tick rows in the table, or change scope to "All products".');
+  }
+
+  // 2. Decide which fields
+  var fieldKeys=[];
+  document.querySelectorAll('#mex-fields-grid input[type="checkbox"][data-mex-field]').forEach(function(cb){
+    if(cb.checked)fieldKeys.push(cb.getAttribute('data-mex-field'));
+  });
+  if(!fieldKeys.length)return alert('Please tick at least one field to export.');
+
+  // 3. Build rows
+  var rows=chosenItems.map(function(it){
+    var row={};
+    fieldKeys.forEach(function(k){
+      if(k==='supplierName'){
+        row['Supplier Name']=masterExportSupplierIdToName(it.supplier);
+      }else if(k==='altBarcodes'){
+        var alts=getItemAltBarcodes(it);
+        row['Alt Barcodes']=alts.join(' | ');
+      }else if(k==='supplierOffers'){
+        var offs=getItemSupplierOffers(it);
+        row['Supplier Offers']=offs.map(function(o){
+          var name=masterExportSupplierIdToName(o.supplier)||o.supplier;
+          return name+' @ '+(Number(o.price)||0).toFixed(3)+' KWD / '+(o.unit||'PCS');
+        }).join(' ; ');
+      }else if(k==='price'||k==='salesPrice'){
+        var v=it[k];
+        row[(MASTER_EXPORT_FIELDS.find(function(f){return f.key===k})||{}).label||k]=(v===''||v==null)?'':Number(v).toFixed(3);
+      }else{
+        var label=(MASTER_EXPORT_FIELDS.find(function(f){return f.key===k})||{}).label||k;
+        row[label]=(it[k]==null)?'':String(it[k]);
+      }
+    });
+    return row;
+  });
+
+  // 4. Generate file
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb,ws,'Products');
+  var dateStr=new Date().toISOString().slice(0,10);
+  var scopeTag=masterExportScope==='all'?'All':(masterExportScope==='filtered'?'Filtered':'Selected');
+  XLSX.writeFile(wb,'Master_Data_Export_'+scopeTag+'_'+dateStr+'.xlsx');
+  alert('Exported '+rows.length+' product(s) with '+fieldKeys.length+' field(s).');
+  closeMasterExportModal();
+}
+
+// Close export modal when clicking the backdrop
+document.addEventListener('click',function(e){
+  var modal=document.getElementById('master-export-modal');
+  if(!modal||modal.style.display!=='flex')return;
+  if(e.target===modal)closeMasterExportModal();
+});
+
+// ==================================================================
+// ========= END NEW FEATURES BLOCK =================================
+// ==================================================================
 
 initCloudSync();
 window.addEventListener('DOMContentLoaded',function(){

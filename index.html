@@ -4170,7 +4170,7 @@ function importProductFieldsXLSX(e){
   showImportProgress();
   setImportProgress(5,'Reading Excel file...');
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
     try{
       const wb=XLSX.read(ev.target.result,{type:'array',cellDates:false});
       // Find the Products sheet — prefer it, else use first
@@ -4248,14 +4248,57 @@ function importProductFieldsXLSX(e){
         updated++;
       });
 
-      setImportProgress(90,'Saving & refreshing...');
+      setImportProgress(90,'Saving locally...');
       rebuildFieldOptionsFromItems();
       renderAll();
       autoBackupMasterData('import_product_fields');
+
+      // --- FIX: push items + meta sections to Supabase immediately (bypass 350ms debounce)
+      // so a quick refresh after the alert won't get overwritten by stale cloud data.
+      let cloudStatus='';
+      if(cloudSyncReady&&supaClient&&!isApplyingRemoteState){
+        setImportProgress(95,'Uploading to cloud...');
+        try{
+          const now=new Date().toISOString();
+          const sectionsToPush=['items','meta']; // items array + fieldOptions (lives in meta)
+          const results=await Promise.allSettled(sectionsToPush.map(async k=>{
+            const data=SYNC_SECTIONS[k].get();
+            const{error}=await supaClient.from(SUPABASE_TABLE).upsert(
+              {id:SYNC_SECTIONS[k].rowId,data,updated_at:now},
+              {onConflict:'id'}
+            );
+            if(error)throw new Error(k+': '+error.message);
+            return{key:k,json:JSON.stringify(data)};
+          }));
+          const failed=[];
+          results.forEach((r,i)=>{
+            if(r.status==='fulfilled'){
+              // Update tracking so polling won't clobber what we just pushed
+              lastCloudSectionJSON[r.value.key]=r.value.json;
+              lastCloudSectionTime[r.value.key]=now;
+            }else{
+              failed.push(sectionsToPush[i]+' ('+(r.reason&&r.reason.message?r.reason.message:String(r.reason))+')');
+            }
+          });
+          if(failed.length){
+            cloudStatus='\n\n⚠️ Cloud upload partial failure: '+failed.join(', ')+'\nYour data is saved locally — it will retry on next edit.';
+            updateCloudSyncBanner('Save failed for: '+failed.join(', '));
+          }else{
+            cloudStatus='\n\n☁️ Cloud sync confirmed — safe to refresh.';
+            lastSyncTime=Date.now();
+            updateCloudSyncBanner();
+          }
+        }catch(cloudErr){
+          cloudStatus='\n\n⚠️ Cloud upload failed: '+(cloudErr&&cloudErr.message?cloudErr.message:cloudErr)+'\nData saved locally — will retry on next edit.';
+        }
+      }else if(!cloudSyncReady||!supaClient){
+        cloudStatus='\n\n(Offline mode — saved locally only.)';
+      }
+
       setImportProgress(100,'Import complete: '+updated+' updated, '+skipped+' skipped, '+newOpts+' new dropdown values');
       hideImportProgress();
       const preview=skippedCodes.slice(0,5).join(', ');
-      alert('✅ Import complete!\n\nUpdated: '+updated+'\nSkipped (code not found): '+skipped+(preview?' — e.g. '+preview:'')+'\nNew dropdown values auto-added: '+newOpts);
+      alert('✅ Import complete!\n\nUpdated: '+updated+'\nSkipped (code not found): '+skipped+(preview?' — e.g. '+preview:'')+'\nNew dropdown values auto-added: '+newOpts+cloudStatus);
     }catch(err){
       hideImportProgress();
       console.error(err);

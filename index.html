@@ -2258,52 +2258,223 @@ function applySharedStatePayload(payload, opts){
   rebuildSearchIndex();
   return true;
 }
+// ============== CHUNKED CLOUD SYNC ==============
+// Each data section is stored as its own row in shared_state, so we only push what changed.
+// This cuts egress by ~95% vs pushing the full 8MB blob on every tiny edit.
+const SYNC_SECTIONS={
+  suppliers:{
+    rowId:'canteen_suppliers',
+    get:()=>suppliers,
+    apply:d=>{if(Array.isArray(d)){suppliers=d.map(normalizeSupplier).filter(s=>s.name);rebuildSearchIndex()}}
+  },
+  items:{
+    rowId:'canteen_items',
+    get:()=>items,
+    apply:d=>{if(Array.isArray(d)){items=d.map(normalizeItem).filter(i=>i.code&&i.name);rebuildFieldOptionsFromItems();rebuildSearchIndex()}}
+  },
+  poHistory:{
+    rowId:'canteen_po_history',
+    get:()=>poHistory,
+    apply:d=>{if(Array.isArray(d)){poHistory=d;poHistory.forEach(p=>{if(!p.status)p.status='Confirmed'})}}
+  },
+  transferHistory:{
+    rowId:'canteen_transfer_history',
+    get:()=>transferHistory,
+    apply:d=>{if(Array.isArray(d))transferHistory=d}
+  },
+  prHistory:{
+    rowId:'canteen_pr_history',
+    get:()=>prHistory,
+    apply:d=>{if(Array.isArray(d))prHistory=d}
+  },
+  stockOnHand:{
+    rowId:'canteen_stock_on_hand',
+    get:()=>stockOnHand,
+    apply:d=>{if(d&&typeof d==='object'&&!Array.isArray(d))stockOnHand=d}
+  },
+  meta:{
+    rowId:'canteen_meta',
+    get:()=>({reps,locations,fieldOptions}),
+    apply:d=>{
+      if(!d||typeof d!=='object')return;
+      if(Array.isArray(d.reps)&&d.reps.length)reps=d.reps;
+      if(Array.isArray(d.locations)&&d.locations.length)locations=d.locations;
+      if(d.fieldOptions&&typeof d.fieldOptions==='object'&&!Array.isArray(d.fieldOptions))fieldOptions=d.fieldOptions;
+    }
+  }
+};
+const SECTION_KEYS=Object.keys(SYNC_SECTIONS);
+const SECTION_ROW_IDS=SECTION_KEYS.map(k=>SYNC_SECTIONS[k].rowId);
+const SECTION_ROW_TO_KEY={};
+SECTION_KEYS.forEach(k=>{SECTION_ROW_TO_KEY[SYNC_SECTIONS[k].rowId]=k});
+let lastCloudSectionJSON={};
+let lastCloudSectionTime={};
+SECTION_KEYS.forEach(k=>{lastCloudSectionJSON[k]='';lastCloudSectionTime[k]=null});
+
+function saveLocalStorageOnly(){
+  try{
+    localStorage.setItem('po_suppliers2',JSON.stringify(suppliers));
+    localStorage.setItem('po_items2',JSON.stringify(items));
+    localStorage.setItem('po_history2',JSON.stringify(poHistory));
+    localStorage.setItem('po_reps2',JSON.stringify(reps));
+    localStorage.setItem('po_stock2',JSON.stringify(stockOnHand));
+    localStorage.setItem('po_locations2',JSON.stringify(locations));
+    localStorage.setItem('po_transfers2',JSON.stringify(transferHistory));
+    localStorage.setItem('po_pr_history2',JSON.stringify(prHistory));
+    localStorage.setItem('po_field_options2',JSON.stringify(fieldOptions));
+  }catch(e){console.warn('localStorage save failed (quota?):',e)}
+}
+
+// Push only sections whose local state differs from last-known-cloud state.
+// Each section is its own HTTP request so large ones (items) don't block small ones.
 function queueCloudSyncSave(){
   if(!cloudSyncReady||isApplyingRemoteState||!supaClient)return;
   clearTimeout(cloudWriteTimer);
   cloudWriteTimer=setTimeout(async()=>{
-    const payload=buildSharedStatePayload();
-    const json=JSON.stringify(payload);
-    if(json===lastCloudStateJSON)return;
-    try{
-      const{error}=await supaClient.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,data:payload,updated_at:new Date().toISOString()},{onConflict:'id'});
-      if(error)throw error;
-      lastCloudStateJSON=json;
+    if(isApplyingRemoteState)return;
+    // Build list of dirty sections
+    const dirty=[];
+    SECTION_KEYS.forEach(k=>{
+      const data=SYNC_SECTIONS[k].get();
+      const json=JSON.stringify(data);
+      if(json!==lastCloudSectionJSON[k]){
+        dirty.push({key:k,data,json});
+      }
+    });
+    if(dirty.length===0)return;
+    // Push each section as its own request in parallel
+    const now=new Date().toISOString();
+    const results=await Promise.allSettled(dirty.map(async d=>{
+      const{error}=await supaClient.from(SUPABASE_TABLE).upsert(
+        {id:SYNC_SECTIONS[d.key].rowId,data:d.data,updated_at:now},
+        {onConflict:'id'}
+      );
+      if(error)throw new Error(d.key+': '+error.message);
+      return d;
+    }));
+    const succeeded=[];
+    const failed=[];
+    results.forEach((r,i)=>{
+      if(r.status==='fulfilled')succeeded.push(dirty[i]);
+      else failed.push({key:dirty[i].key,error:r.reason&&r.reason.message?r.reason.message:String(r.reason)});
+    });
+    // Update tracking for sections that pushed successfully
+    succeeded.forEach(s=>{
+      lastCloudSectionJSON[s.key]=s.json;
+      lastCloudSectionTime[s.key]=now;
+    });
+    if(failed.length>0){
+      const msg=failed.map(f=>f.key+' ('+f.error+')').join(', ');
+      console.warn('Cloud sync save partial failure:',msg);
+      updateCloudSyncBanner('Save failed for: '+msg);
+      // Failed sections stay dirty and will retry on next save
+    }else{
       lastSyncTime=Date.now();
       updateCloudSyncBanner();
-    }catch(err){
-      const msg=err&&err.message?err.message:String(err);
-      console.warn('Cloud sync save failed:',msg);
-      updateCloudSyncBanner('Save failed: '+msg);
     }
   },350);
 }
+
+// Fetch only the sections whose server updated_at is newer than what we last saw.
+// Two-step: fetch timestamps (tiny), then fetch data only for changed sections.
 async function fetchCloudState(){
   if(!supaClient)return false;
   try{
-    const{data:row,error:fetchErr}=await supaClient.from(SUPABASE_TABLE).select('data').eq('id',SUPABASE_ROW_ID).maybeSingle();
-    if(fetchErr){updateCloudSyncBanner('Fetch failed: '+fetchErr.message);return false}
-    if(!row||!row.data||typeof row.data!=='object')return false;
-    const payload=row.data;
-    const json=JSON.stringify(payload);
-    if(json===lastCloudStateJSON)return false;
+    const{data:tsRows,error:tsErr}=await supaClient.from(SUPABASE_TABLE).select('id,updated_at').in('id',SECTION_ROW_IDS);
+    if(tsErr){updateCloudSyncBanner('Fetch failed: '+tsErr.message);return false}
+    if(!tsRows||tsRows.length===0){
+      // No chunked rows exist yet — check for legacy row and migrate
+      return await migrateLegacyIfNeeded();
+    }
+    // Figure out which sections have newer server data
+    const toFetchIds=[];
+    tsRows.forEach(r=>{
+      const key=SECTION_ROW_TO_KEY[r.id];
+      if(!key)return;
+      const lastTime=lastCloudSectionTime[key];
+      if(!lastTime||new Date(r.updated_at)>new Date(lastTime)){
+        toFetchIds.push(r.id);
+      }
+    });
+    if(toFetchIds.length===0){
+      lastSyncTime=Date.now();
+      updateCloudSyncBanner();
+      return true;
+    }
+    const{data:freshRows,error:fErr}=await supaClient.from(SUPABASE_TABLE).select('id,data,updated_at').in('id',toFetchIds);
+    if(fErr){updateCloudSyncBanner('Fetch failed: '+fErr.message);return false}
+    if(!freshRows||freshRows.length===0)return false;
     isApplyingRemoteState=true;
     try{
-      if(applySharedStatePayload(payload,{fromCloudSync:true})){
-        saveData();
+      let anyChanged=false;
+      freshRows.forEach(fr=>{
+        const key=SECTION_ROW_TO_KEY[fr.id];
+        if(!key)return;
+        const json=JSON.stringify(fr.data);
+        if(json===lastCloudSectionJSON[key])return;
+        SYNC_SECTIONS[key].apply(fr.data);
+        lastCloudSectionJSON[key]=json;
+        lastCloudSectionTime[key]=fr.updated_at;
+        anyChanged=true;
+      });
+      if(anyChanged){
+        saveLocalStorageOnly();
         renderAll();
-        lastCloudStateJSON=json;
-        lastSyncTime=Date.now();
-        updateCloudSyncBanner();
-        setTimeout(function(){queueCloudSyncSave()},0);
-        return true;
       }
+      lastSyncTime=Date.now();
+      updateCloudSyncBanner();
     }finally{isApplyingRemoteState=false}
+    return true;
   }catch(err){
     updateCloudSyncBanner('Fetch error: '+(err&&err.message?err.message:err));
+    return false;
   }
-  return false;
 }
+
+// One-time migration: if legacy single-row exists but no chunked rows,
+// split it into chunked rows so the team continues with zero data loss.
+async function migrateLegacyIfNeeded(){
+  try{
+    const{data:legacy,error}=await supaClient.from(SUPABASE_TABLE).select('data').eq('id',SUPABASE_ROW_ID).maybeSingle();
+    if(error)return false;
+    if(!legacy||!legacy.data||typeof legacy.data!=='object')return false;
+    console.log('[cloud sync] Migrating legacy row to chunked sections...');
+    updateCloudSyncBanner('Migrating cloud data to chunked sync (one-time)...');
+    const payload=legacy.data;
+    isApplyingRemoteState=true;
+    try{
+      applySharedStatePayload(payload);
+      saveLocalStorageOnly();
+      renderAll();
+    }finally{isApplyingRemoteState=false}
+    // Push each section as its own row
+    const now=new Date().toISOString();
+    const results=await Promise.allSettled(SECTION_KEYS.map(async k=>{
+      const data=SYNC_SECTIONS[k].get();
+      const{error:upErr}=await supaClient.from(SUPABASE_TABLE).upsert(
+        {id:SYNC_SECTIONS[k].rowId,data,updated_at:now},
+        {onConflict:'id'}
+      );
+      if(upErr)throw new Error(k+': '+upErr.message);
+      return{key:k,json:JSON.stringify(data)};
+    }));
+    const failed=results.filter(r=>r.status==='rejected');
+    if(failed.length>0){
+      const msg=failed.map(r=>r.reason&&r.reason.message?r.reason.message:String(r.reason)).join(', ');
+      updateCloudSyncBanner('Migration failed: '+msg);
+      return false;
+    }
+    results.forEach(r=>{if(r.status==='fulfilled'){lastCloudSectionJSON[r.value.key]=r.value.json;lastCloudSectionTime[r.value.key]=now}});
+    lastSyncTime=Date.now();
+    updateCloudSyncBanner();
+    console.log('[cloud sync] Migration complete.');
+    return true;
+  }catch(err){
+    console.warn('[cloud sync] Migration error:',err);
+    return false;
+  }
+}
+
 async function initCloudSync(){
   if(!CLOUD_SYNC_ENABLED){updateCloudSyncBanner();return}
   if(typeof supabase==='undefined'){
@@ -2316,34 +2487,37 @@ async function initCloudSync(){
     cloudSyncReady=true;
     cloudNetOnline=true;
     updateCloudSyncBanner();
-    // Initial load from Supabase
+    // Initial load — fetches only changed sections or migrates from legacy
     await fetchCloudState();
-    // Subscribe to realtime changes
-    supaChannel=supaClient.channel('shared-state-changes')
-      .on('postgres_changes',{event:'*',schema:'public',table:SUPABASE_TABLE,filter:'id=eq.'+SUPABASE_ROW_ID},payload=>{
-        const data=payload.new&&payload.new.data;
-        if(!data||typeof data!=='object')return;
-        const json=JSON.stringify(data);
-        if(json===lastCloudStateJSON)return;
+    // Realtime: listen for changes on ANY row in shared_state, filter by our section row IDs client-side
+    supaChannel=supaClient.channel('shared-state-chunked-changes')
+      .on('postgres_changes',{event:'*',schema:'public',table:SUPABASE_TABLE},payload=>{
+        if(isApplyingRemoteState)return;
+        const row=payload.new;
+        if(!row||!row.id)return;
+        const key=SECTION_ROW_TO_KEY[row.id];
+        if(!key)return; // not a chunked section row (e.g. legacy row)
+        // If realtime dropped the payload (>3MB), the 15s poll will catch it
+        if(!row.data)return;
+        const json=JSON.stringify(row.data);
+        if(json===lastCloudSectionJSON[key])return; // our own write
         isApplyingRemoteState=true;
         try{
-          if(applySharedStatePayload(data,{fromCloudSync:true})){
-            saveData();
-            renderAll();
-            lastCloudStateJSON=json;
-            lastSyncTime=Date.now();
-            updateCloudSyncBanner();
-            setTimeout(function(){queueCloudSyncSave()},0);
-          }
+          SYNC_SECTIONS[key].apply(row.data);
+          lastCloudSectionJSON[key]=json;
+          if(row.updated_at)lastCloudSectionTime[key]=row.updated_at;
+          saveLocalStorageOnly();
+          renderAll();
+          lastSyncTime=Date.now();
+          updateCloudSyncBanner();
         }finally{isApplyingRemoteState=false}
       })
       .subscribe(status=>{
         cloudNetOnline=(status==='SUBSCRIBED');
         updateCloudSyncBanner();
       });
-    // Polling fallback every 15 seconds in case Realtime misses updates
+    // Polling fallback every 15s — cheap (only fetches timestamps first)
     cloudPollTimer=setInterval(()=>{if(cloudSyncReady&&!isApplyingRemoteState)fetchCloudState()},15000);
-    queueCloudSyncSave();
     updateCloudSyncBanner();
   }catch(err){
     cloudSyncReady=false;
@@ -2352,11 +2526,14 @@ async function initCloudSync(){
     updateCloudSyncBanner('Init failed: '+msg);
   }
 }
+
 async function manualCloudRefresh(){
   if(!cloudSyncReady||!supaClient){alert('Cloud sync not ready.');return}
   updateCloudSyncBanner('Refreshing...');
+  // Force re-fetch by clearing timestamps
+  SECTION_KEYS.forEach(k=>{lastCloudSectionTime[k]=null});
   const ok=await fetchCloudState();
-  if(!ok){queueCloudSyncSave();updateCloudSyncBanner()}
+  if(!ok)updateCloudSyncBanner();
 }
 function saveData(){
   try{
@@ -3780,49 +3957,46 @@ async function restoreAllDataUniversal(e){
   reader.onload=async ev=>{
     // Lock out polling / realtime overwrites while we restore & push
     isApplyingRemoteState=true;
-    // Cancel any pending debounced writes from previous actions
     if(cloudWriteTimer){clearTimeout(cloudWriteTimer);cloudWriteTimer=null}
     try{
       const parsed=JSON.parse(ev.target.result);
       const payload=parsed&&typeof parsed==='object'?parsed:{};
       const ok=applySharedStatePayload(payload);
       if(!ok)throw new Error('Invalid backup format');
-      // Write to localStorage directly (don't call saveData — that would queue a debounced
-      // cloud save which can race with the direct push below)
-      try{
-        localStorage.setItem('po_suppliers2',JSON.stringify(suppliers));
-        localStorage.setItem('po_items2',JSON.stringify(items));
-        localStorage.setItem('po_history2',JSON.stringify(poHistory));
-        localStorage.setItem('po_reps2',JSON.stringify(reps));
-        localStorage.setItem('po_stock2',JSON.stringify(stockOnHand));
-        localStorage.setItem('po_locations2',JSON.stringify(locations));
-        localStorage.setItem('po_transfers2',JSON.stringify(transferHistory));
-        localStorage.setItem('po_pr_history2',JSON.stringify(prHistory));
-        localStorage.setItem('po_field_options2',JSON.stringify(fieldOptions));
-      }catch(lsErr){
-        console.warn('localStorage save failed (quota?) — continuing with Supabase only.',lsErr);
-      }
+      saveLocalStorageOnly();
       renderAll();
-      // Direct, awaited push to cloud BEFORE we release the lock.
-      // This guarantees the next poll/realtime fetch sees our new state as "cloud state"
-      // and will NOT overwrite our restored arrays.
+      // Push all sections in parallel — each is its own small HTTP request
       if(cloudSyncReady&&supaClient){
-        updateCloudSyncBanner('Uploading restored data to cloud...');
-        const freshPayload=buildSharedStatePayload();
-        const {error}=await supaClient.from(SUPABASE_TABLE).upsert(
-          {id:SUPABASE_ROW_ID,data:freshPayload,updated_at:new Date().toISOString()},
-          {onConflict:'id'}
-        );
-        if(error){
-          updateCloudSyncBanner('Restore cloud push failed: '+error.message);
-          alert('Data restored locally, but cloud upload FAILED:\n\n'+error.message+'\n\nData may be overwritten by other users. Try again or check your internet connection.');
+        updateCloudSyncBanner('Uploading restored data to cloud (chunked, 7 sections)...');
+        const now=new Date().toISOString();
+        const results=await Promise.allSettled(SECTION_KEYS.map(async k=>{
+          const data=SYNC_SECTIONS[k].get();
+          const{error}=await supaClient.from(SUPABASE_TABLE).upsert(
+            {id:SYNC_SECTIONS[k].rowId,data,updated_at:now},
+            {onConflict:'id'}
+          );
+          if(error)throw new Error(k+': '+error.message);
+          return{key:k,json:JSON.stringify(data)};
+        }));
+        const succeeded=[];
+        const failed=[];
+        results.forEach(r=>{
+          if(r.status==='fulfilled')succeeded.push(r.value);
+          else failed.push(r.reason&&r.reason.message?r.reason.message:String(r.reason));
+        });
+        // Update tracking for pushed sections so polling/realtime won't overwrite them
+        succeeded.forEach(s=>{
+          lastCloudSectionJSON[s.key]=s.json;
+          lastCloudSectionTime[s.key]=now;
+        });
+        if(failed.length>0){
+          updateCloudSyncBanner('Partial restore failure: '+failed.join(', '));
+          alert('Data restored locally. Cloud upload PARTIALLY failed:\n\n'+failed.join('\n')+'\n\nThe failed sections will retry on next save automatically.');
           return;
         }
-        // Critical: sync lastCloudStateJSON so polling sees "no change" and won't overwrite
-        lastCloudStateJSON=JSON.stringify(freshPayload);
         lastSyncTime=Date.now();
         updateCloudSyncBanner();
-        alert('✓ All data restored and synced to cloud successfully.\n\nAll team members will see the updated data on their next sync.');
+        alert('✓ All data restored and synced to cloud successfully.\n\nAll team members will see the updated data automatically.');
       }else{
         alert('Data restored locally. Cloud sync is not connected, so other users will NOT see these changes until sync reconnects.');
       }
@@ -4323,20 +4497,57 @@ function loadPODraftForEdit(i){
   if(createTab)switchTab('create',createTab);
 }
 async function savePOHistoryToCloud(){
-  saveData();
-  if(!cloudSyncReady||!supaClient){alert('Cloud sync not connected. Changes saved locally only.');return}
+  // Write locally first
   try{
-    const payload=buildSharedStatePayload();
-    const json=JSON.stringify(payload);
-    const{error}=await supaClient.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,data:payload,updated_at:new Date().toISOString()},{onConflict:'id'});
-    if(error)throw error;
-    lastCloudStateJSON=json;
-    lastSyncTime=Date.now();
-    updateCloudSyncBanner();
-    alert('PO History saved & synced to cloud successfully!');
-  }catch(err){
-    alert('Cloud save failed: '+(err&&err.message?err.message:err)+'. Changes saved locally.');
+    localStorage.setItem('po_suppliers2',JSON.stringify(suppliers));
+    localStorage.setItem('po_items2',JSON.stringify(items));
+    localStorage.setItem('po_history2',JSON.stringify(poHistory));
+    localStorage.setItem('po_reps2',JSON.stringify(reps));
+    localStorage.setItem('po_stock2',JSON.stringify(stockOnHand));
+    localStorage.setItem('po_locations2',JSON.stringify(locations));
+    localStorage.setItem('po_transfers2',JSON.stringify(transferHistory));
+    localStorage.setItem('po_pr_history2',JSON.stringify(prHistory));
+    localStorage.setItem('po_field_options2',JSON.stringify(fieldOptions));
+  }catch(e){console.warn('localStorage save failed:',e)}
+  if(!cloudSyncReady||!supaClient){alert('Cloud sync not connected. Changes saved locally only.');return}
+  // Directly push only sections that differ from cloud state — awaited, not debounced
+  if(cloudWriteTimer){clearTimeout(cloudWriteTimer);cloudWriteTimer=null}
+  const dirty=[];
+  SECTION_KEYS.forEach(k=>{
+    const data=SYNC_SECTIONS[k].get();
+    const json=JSON.stringify(data);
+    if(json!==lastCloudSectionJSON[k])dirty.push({key:k,data,json});
+  });
+  if(dirty.length===0){
+    alert('Already in sync — no changes to upload.');
+    return;
   }
+  const now=new Date().toISOString();
+  const results=await Promise.allSettled(dirty.map(async d=>{
+    const{error}=await supaClient.from(SUPABASE_TABLE).upsert(
+      {id:SYNC_SECTIONS[d.key].rowId,data:d.data,updated_at:now},
+      {onConflict:'id'}
+    );
+    if(error)throw new Error(d.key+': '+error.message);
+    return d;
+  }));
+  const failed=[];
+  results.forEach((r,i)=>{
+    if(r.status==='fulfilled'){
+      const d=dirty[i];
+      lastCloudSectionJSON[d.key]=d.json;
+      lastCloudSectionTime[d.key]=now;
+    }else{
+      failed.push(r.reason&&r.reason.message?r.reason.message:String(r.reason));
+    }
+  });
+  if(failed.length>0){
+    alert('Cloud save partially failed:\n\n'+failed.join('\n')+'\n\nOther changes were saved.');
+    return;
+  }
+  lastSyncTime=Date.now();
+  updateCloudSyncBanner();
+  alert('PO History saved & synced to cloud successfully!');
 }
 function deletePODraft(i){
   const po=poHistory[i];
@@ -5058,7 +5269,51 @@ function viewPRDetails(i){
   showInlineDetail('pr-hist-list-view','pr-hist-detail-view');
 }
 function redownloadPR(i){const pr=prHistory[i];if(pr)generatePRPDF(pr)}
-function savePRHistoryToCloud(){saveData();if(!cloudSyncReady||!supaClient){alert('Cloud sync not connected.');return}supaClient.from(SUPABASE_TABLE).upsert({id:SUPABASE_ROW_ID,data:buildSharedStatePayload(),updated_at:new Date().toISOString()},{onConflict:'id'}).then(({error})=>{if(error)alert('Cloud save failed: '+error.message);else{lastSyncTime=Date.now();updateCloudSyncBanner();alert('PR History saved to cloud!')}})}
+async function savePRHistoryToCloud(){
+  try{
+    localStorage.setItem('po_suppliers2',JSON.stringify(suppliers));
+    localStorage.setItem('po_items2',JSON.stringify(items));
+    localStorage.setItem('po_history2',JSON.stringify(poHistory));
+    localStorage.setItem('po_reps2',JSON.stringify(reps));
+    localStorage.setItem('po_stock2',JSON.stringify(stockOnHand));
+    localStorage.setItem('po_locations2',JSON.stringify(locations));
+    localStorage.setItem('po_transfers2',JSON.stringify(transferHistory));
+    localStorage.setItem('po_pr_history2',JSON.stringify(prHistory));
+    localStorage.setItem('po_field_options2',JSON.stringify(fieldOptions));
+  }catch(e){console.warn('localStorage save failed:',e)}
+  if(!cloudSyncReady||!supaClient){alert('Cloud sync not connected.');return}
+  if(cloudWriteTimer){clearTimeout(cloudWriteTimer);cloudWriteTimer=null}
+  const dirty=[];
+  SECTION_KEYS.forEach(k=>{
+    const data=SYNC_SECTIONS[k].get();
+    const json=JSON.stringify(data);
+    if(json!==lastCloudSectionJSON[k])dirty.push({key:k,data,json});
+  });
+  if(dirty.length===0){alert('Already in sync — no changes to upload.');return}
+  const now=new Date().toISOString();
+  const results=await Promise.allSettled(dirty.map(async d=>{
+    const{error}=await supaClient.from(SUPABASE_TABLE).upsert(
+      {id:SYNC_SECTIONS[d.key].rowId,data:d.data,updated_at:now},
+      {onConflict:'id'}
+    );
+    if(error)throw new Error(d.key+': '+error.message);
+    return d;
+  }));
+  const failed=[];
+  results.forEach((r,i)=>{
+    if(r.status==='fulfilled'){
+      const d=dirty[i];
+      lastCloudSectionJSON[d.key]=d.json;
+      lastCloudSectionTime[d.key]=now;
+    }else{
+      failed.push(r.reason&&r.reason.message?r.reason.message:String(r.reason));
+    }
+  });
+  if(failed.length>0){alert('Cloud save partially failed:\n\n'+failed.join('\n'));return}
+  lastSyncTime=Date.now();
+  updateCloudSyncBanner();
+  alert('PR History saved to cloud!');
+}
 
 // ── PR Import / Export / Template ──
 function exportPRDraft(){

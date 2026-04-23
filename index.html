@@ -1762,8 +1762,8 @@ function refreshDropdownDatalists(){
   });
 }
 const CLOUD_SYNC_ENABLED=true;
-const SUPABASE_URL='https://uatxbbyrtnmnadrroemf.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhdHhiYnlydG5tbmFkcnJvZW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NTgyNjgsImV4cCI6MjA5MTQzNDI2OH0.JxrFZwOzL0W9_y1dInHX5v4o4j5Vz88t5lwRJYAQZrI';
+const SUPABASE_URL='https://rdydhciunabuyavuumae.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkeWRoY2l1bmFidXlhdnV1bWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NTAyNDYsImV4cCI6MjA5MjQyNjI0Nn0.4l82qZgeY-00EBQoGvn-UiZGl_CO5lkVY5VnbFLNvGg';
 const SUPABASE_TABLE='shared_state';
 const SUPABASE_ROW_ID='canteen_po_system_v2';
 const PUBLIC_APP_URL='https://hardikptailor.github.io/ERP-App/';
@@ -5999,7 +5999,7 @@ window.addEventListener('DOMContentLoaded',function(){
 
 <!-- ========= AUTH SCRIPT ========= -->
 <script>
-const authSupa=window.supabase.createClient('https://uatxbbyrtnmnadrroemf.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhdHhiYnlydG5tbmFkcnJvZW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NTgyNjgsImV4cCI6MjA5MTQzNDI2OH0.JxrFZwOzL0W9_y1dInHX5v4o4j5Vz88t5lwRJYAQZrI');
+const authSupa=window.supabase.createClient('https://rdydhciunabuyavuumae.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkeWRoY2l1bmFidXlhdnV1bWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NTAyNDYsImV4cCI6MjA5MjQyNjI0Nn0.4l82qZgeY-00EBQoGvn-UiZGl_CO5lkVY5VnbFLNvGg');
 (async function(){const{data:{session}}=await authSupa.auth.getSession();if(session)authShowApp();authSupa.auth.onAuthStateChange((e,s)=>{if(e==='SIGNED_IN'&&s)authShowApp();else if(e==='SIGNED_OUT'){document.getElementById('auth-login-overlay').style.display='flex';const w=document.getElementById('auth-user-wrap');if(w){w.style.display='none';w.classList.remove('open');}}});})();
 async function authLogin(){const email=document.getElementById('auth-email').value.trim();const pw=document.getElementById('auth-password').value;const btn=document.getElementById('auth-login-btn');const err=document.getElementById('auth-error');if(!email||!pw){err.textContent='Please enter email and password';err.style.display='block';return;}btn.disabled=true;btn.textContent='Signing in...';err.style.display='none';const{data,error}=await authSupa.auth.signInWithPassword({email,password:pw});if(error){err.textContent=error.message||'Login failed';err.style.display='block';btn.disabled=false;btn.textContent='Sign In';return;}authShowApp();}
 async function authShowApp(){document.getElementById('auth-login-overlay').style.display='none';const wrap=document.getElementById('auth-user-wrap');if(wrap)wrap.style.display='block';try{const{data:{user}}=await authSupa.auth.getUser();if(user&&user.email){const email=user.email;const uname=email.split('@')[0];const display=uname.charAt(0).toUpperCase()+uname.slice(1);const nameEl=document.getElementById('auth-user-name');const emailEl=document.getElementById('auth-user-email');const avEl=document.getElementById('auth-user-avatar');if(nameEl)nameEl.textContent=display;if(emailEl)emailEl.textContent=email;if(avEl)avEl.textContent=uname.charAt(0).toUpperCase();}}catch(err){console.warn('Could not load user info:',err);}}
